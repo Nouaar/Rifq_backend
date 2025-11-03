@@ -23,11 +23,3 @@ Built with **NestJS** and **MongoDB**, it handles authentication, pet data manag
 - 🛍️ Mini shop for pet accessories
 - 💸 Wallet & payment system for services
 
----
-
-## 🚀 Getting Started
-
-### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/Nouaar/rifq-backend.git
-cd rifq-backend
