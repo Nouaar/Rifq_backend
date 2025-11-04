@@ -18,19 +18,20 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const user_schema_1 = require("./schemas/user.schema");
 let UsersService = class UsersService {
-    userModel;
     constructor(userModel) {
         this.userModel = userModel;
     }
     async create(createUserDto) {
-        const user = new this.userModel(createUserDto);
-        return user.save();
+        const createdUser = new this.userModel({
+            ...createUserDto,
+            balance: 0,
+            isVerified: false,
+        });
+        return await createdUser.save();
     }
     async findAll() {
-        return this.userModel.find().exec();
-    }
-    async findByPhone(phoneNumber) {
-        return this.userModel.findOne({ phoneNumber }).exec();
+        const users = await this.userModel.find().exec();
+        return users;
     }
     async findOne(id) {
         const user = await this.userModel.findById(id).exec();
@@ -39,18 +40,29 @@ let UsersService = class UsersService {
         return user;
     }
     async update(id, updateUserDto) {
-        const updated = await this.userModel
+        const user = await this.userModel
             .findByIdAndUpdate(id, updateUserDto, { new: true })
             .exec();
-        if (!updated)
+        if (!user)
             throw new common_1.NotFoundException('User not found');
-        return updated;
+        return user;
     }
     async remove(id) {
-        const deleted = await this.userModel.findByIdAndDelete(id).exec();
-        if (!deleted)
+        const user = await this.userModel.findByIdAndDelete(id).exec();
+        if (!user)
             throw new common_1.NotFoundException('User not found');
-        return deleted;
+        return user;
+    }
+    async findById(id) {
+        return await this.userModel.findById(id).exec();
+    }
+    async findByEmail(email) {
+        return await this.userModel.findOne({ email }).exec();
+    }
+    async updateRefreshToken(userId, refreshToken) {
+        return this.userModel.findByIdAndUpdate(userId, {
+            hashedRefreshToken: refreshToken,
+        });
     }
 };
 exports.UsersService = UsersService;

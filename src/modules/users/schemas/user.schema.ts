@@ -1,31 +1,42 @@
-//users/schemas/user.schema.ts
+// src/modules/users/schemas/user.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type UserDocument = User & Document;
 
-@Schema({ timestamps: true })
-export class User {
-  @Prop({ required: true, unique: true })
-  phoneNumber: string;
+@Schema()
+export class User extends Document {
+  _id: Types.ObjectId;
 
-  @Prop()
+  @Prop({ required: true, unique: true })
+  email: string;
+
+  @Prop({ required: true })
   name: string;
 
-  @Prop({ enum: ['owner', 'vet', 'sitter'], default: 'owner' })
-  role: string;
+  @Prop({ required: true })
+  password: string;
 
   @Prop()
-  avatarUrl: string;
+  role: string; // optional if using UserRole enum
 
-  @Prop()
-  otpCode?: string;
-
-  @Prop()
-  otpExpiresAt?: Date;
+  @Prop({ default: 0 })
+  balance: number;
 
   @Prop({ default: false })
   isVerified: boolean;
+
+  @Prop()
+  verificationCode?: string;
+
+  @Prop()
+  verificationCodeExpires?: Date;
+
+  @Prop()
+  refreshToken?: string; // optional if you want raw token storage
+
+  @Prop()
+  hashedRefreshToken?: string; // <- required for refresh flow
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -11,9 +11,12 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const auth_controller_1 = require("./auth.controller");
 const jwt_1 = require("@nestjs/jwt");
+const passport_1 = require("@nestjs/passport");
 const config_1 = require("@nestjs/config");
-const mongoose_1 = require("@nestjs/mongoose");
-const user_schema_1 = require("../users/schemas/user.schema");
+const users_module_1 = require("../users/users.module");
+const jwt_strategy_1 = require("./jwt.strategy");
+const mail_module_1 = require("../mail/mail.module");
+const jwt_refresh_strategy_1 = require("./jwt-refresh.strategy");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -21,7 +24,9 @@ exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule,
-            mongoose_1.MongooseModule.forFeature([{ name: user_schema_1.User.name, schema: user_schema_1.UserSchema }]),
+            passport_1.PassportModule,
+            users_module_1.UsersModule,
+            mail_module_1.MailModule,
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 useFactory: (configService) => ({
@@ -32,7 +37,8 @@ exports.AuthModule = AuthModule = __decorate([
             }),
         ],
         controllers: [auth_controller_1.AuthController],
-        providers: [auth_service_1.AuthService],
+        providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
+        exports: [auth_service_1.AuthService],
     })
 ], AuthModule);
 //# sourceMappingURL=auth.module.js.map

@@ -9,25 +9,17 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VerifyOtpDto = void 0;
+exports.LoginDto = void 0;
 const class_validator_1 = require("class-validator");
-const swagger_1 = require("@nestjs/swagger");
-class VerifyOtpDto {
-    phone;
-    code;
+class LoginDto {
 }
-exports.VerifyOtpDto = VerifyOtpDto;
+exports.LoginDto = LoginDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'User phone number', example: '+21692504166' }),
-    (0, class_validator_1.IsPhoneNumber)(),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsEmail)({}, { message: 'Invalid email format' }),
     __metadata("design:type", String)
-], VerifyOtpDto.prototype, "phone", void 0);
+], LoginDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'OTP code sent to user', example: '123456' }),
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Length)(4, 6),
-    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsNotEmpty)({ message: 'Password is required' }),
     __metadata("design:type", String)
-], VerifyOtpDto.prototype, "code", void 0);
-//# sourceMappingURL=verify-otp.dto.js.map
+], LoginDto.prototype, "password", void 0);
+//# sourceMappingURL=login.dto.js.map

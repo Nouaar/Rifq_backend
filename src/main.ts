@@ -18,11 +18,11 @@ async function bootstrap(): Promise<void> {
 
   // Step 1: Build Swagger configuration
   const swaggerConfig = new DocumentBuilder()
-  .setTitle('Rifq Backend API')
-  .setDescription('API documentation for Rifq backend')
-  .setVersion('1.0')
-  .addBearerAuth()
-  .build() as OpenAPIObject;
+    .setTitle('Rifq Backend API')
+    .setDescription('API documentation for Rifq backend')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build() as OpenAPIObject;
 
   const swaggerDocument: OpenAPIObject = SwaggerModule.createDocument(
     app,

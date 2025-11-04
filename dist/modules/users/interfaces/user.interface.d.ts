@@ -1,6 +1,6 @@
 export interface IUser {
     _id?: string;
-    phoneNumber: string;
+    email: string;
     name: string;
     role: 'owner' | 'vet' | 'sitter';
     avatarUrl?: string;

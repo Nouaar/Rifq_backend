@@ -15,47 +15,71 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
-const request_otp_dto_1 = require("./dto/request-otp.dto");
-const verify_otp_dto_1 = require("./dto/verify-otp.dto");
-const swagger_1 = require("@nestjs/swagger");
+const register_dto_1 = require("./dto/register.dto");
+const login_dto_1 = require("./dto/login.dto");
+const verify_email_dto_1 = require("./dto/verify-email.dto");
+const jwt_refresh_guard_1 = require("../../common/guards/jwt-refresh.guard");
 let AuthController = class AuthController {
-    authService;
     constructor(authService) {
         this.authService = authService;
     }
-    async requestOtp(dto) {
-        return this.authService.requestOtp(dto.phone);
+    async register(registerDto) {
+        return this.authService.register(registerDto.email, registerDto.name, registerDto.password, registerDto.role);
     }
-    async verifyOtp(dto) {
-        return this.authService.verifyOtp(dto.phone, dto.code);
+    async login(loginDto) {
+        return this.authService.login(loginDto.email, loginDto.password);
+    }
+    async refresh(req) {
+        const { sub: userId, refreshToken } = req.user;
+        return this.authService.refreshTokens(userId, refreshToken);
+    }
+    async verifyEmail(verifyDto) {
+        return this.authService.verifyEmail(verifyDto.email, verifyDto.code);
+    }
+    async logout(req) {
+        const userId = req.user.sub;
+        return this.authService.logout(userId);
     }
 };
 exports.AuthController = AuthController;
 __decorate([
-    (0, common_1.Post)('request-otp'),
-    (0, swagger_1.ApiOperation)({ summary: 'Request OTP for login/signup' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'OTP sent successfully' }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid phone number' }),
+    (0, common_1.Post)('register'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [request_otp_dto_1.RequestOtpDto]),
+    __metadata("design:paramtypes", [register_dto_1.RegisterDto]),
     __metadata("design:returntype", Promise)
-], AuthController.prototype, "requestOtp", null);
+], AuthController.prototype, "register", null);
 __decorate([
-    (0, common_1.Post)('verify-otp'),
-    (0, swagger_1.ApiOperation)({ summary: 'Verify OTP and get JWT token' }),
-    (0, swagger_1.ApiResponse)({
-        status: 200,
-        description: 'OTP verified successfully, token returned',
-    }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid OTP or phone number' }),
+    (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [verify_otp_dto_1.VerifyOtpDto]),
+    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
     __metadata("design:returntype", Promise)
-], AuthController.prototype, "verifyOtp", null);
+], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('refresh'),
+    (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "refresh", null);
+__decorate([
+    (0, common_1.Post)('verify'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [verify_email_dto_1.VerifyEmailDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('logout'),
+    (0, common_1.UseGuards)(jwt_refresh_guard_1.JwtRefreshGuard),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "logout", null);
 exports.AuthController = AuthController = __decorate([
-    (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])
 ], AuthController);

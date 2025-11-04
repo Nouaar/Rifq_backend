@@ -14,7 +14,6 @@ const common_1 = require("@nestjs/common");
 const app_service_1 = require("./app.service");
 const swagger_1 = require("@nestjs/swagger");
 let AppController = class AppController {
-    appService;
     constructor(appService) {
         this.appService = appService;
     }

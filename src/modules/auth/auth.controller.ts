@@ -1,30 +1,51 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RequestOtpDto } from './dto/request-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+// src/modules/auth/auth.controller.ts
+import { Body, Controller, Post, UseGuards, Req } from '@nestjs/common';
+import { AuthService, Tokens } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { JwtRefreshGuard } from '../../common/guards/jwt-refresh.guard';
+import { Request } from 'express';
+import { User } from '../users/schemas/user.schema';
 
-@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Post('request-otp')
-  @ApiOperation({ summary: 'Request OTP for login/signup' })
-  @ApiResponse({ status: 201, description: 'OTP sent successfully' })
-  @ApiResponse({ status: 400, description: 'Invalid phone number' })
-  async requestOtp(@Body() dto: RequestOtpDto) {
-    return this.authService.requestOtp(dto.phone);
+  @Post('register')
+  async register(@Body() registerDto: RegisterDto) {
+    return this.authService.register(
+      registerDto.email,
+      registerDto.name,
+      registerDto.password,
+      registerDto.role,
+    );
   }
 
-  @Post('verify-otp')
-  @ApiOperation({ summary: 'Verify OTP and get JWT token' })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified successfully, token returned',
-  })
-  @ApiResponse({ status: 400, description: 'Invalid OTP or phone number' })
-  async verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto.phone, dto.code);
+  @Post('login')
+  async login(
+    @Body() loginDto: LoginDto,
+  ): Promise<{ user: User; tokens: Tokens }> {
+    return this.authService.login(loginDto.email, loginDto.password);
+  }
+
+  @Post('refresh')
+  @UseGuards(JwtRefreshGuard)
+  async refresh(
+    @Req() req: Request & { user: { sub: string; refreshToken: string } },
+  ): Promise<Tokens> {
+    const { sub: userId, refreshToken } = req.user;
+    return this.authService.refreshTokens(userId, refreshToken);
+  }
+
+  @Post('verify')
+  async verifyEmail(@Body() verifyDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyDto.email, verifyDto.code);
+  }
+  @Post('logout')
+  @UseGuards(JwtRefreshGuard)
+  async logout(@Req() req: Request & { user: { sub: string } }) {
+    const userId = req.user.sub;
+    return this.authService.logout(userId);
   }
 }

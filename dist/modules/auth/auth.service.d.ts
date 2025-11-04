@@ -1,23 +1,34 @@
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { Model } from 'mongoose';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
+import { UserDocument } from '../users/schemas/user.schema';
+import { UserRole } from '../users/dto/create-user.dto';
+export interface Tokens {
+    accessToken: string;
+    refreshToken: string;
+}
 export declare class AuthService {
-    private jwtService;
-    private configService;
-    private userModel;
-    private twilioClient;
-    private otpStore;
-    constructor(jwtService: JwtService, configService: ConfigService, userModel: Model<UserDocument>);
-    requestOtp(phoneNumber: string): Promise<{
+    private readonly userModel;
+    private readonly jwtService;
+    private readonly configService;
+    private readonly mailService;
+    constructor(userModel: Model<UserDocument>, jwtService: JwtService, configService: ConfigService, mailService: MailService);
+    register(email: string, name: string, password: string, role?: UserRole): Promise<{
         message: string;
     }>;
-    verifyOtp(phoneNumber: string, code: string): Promise<{
-        access_token: string;
-        user: import("mongoose").Document<unknown, {}, UserDocument, {}, {}> & User & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        };
+    verifyEmail(email: string, code: string): Promise<{
+        message: string;
+    }>;
+    login(email: string, password: string): Promise<{
+        user: UserDocument;
+        tokens: Tokens;
+    }>;
+    refreshTokens(userId: string, refreshToken: string): Promise<Tokens>;
+    logout(userId: string): Promise<{
+        message: string;
+    }>;
+    resendVerificationCode(email: string): Promise<{
+        message: string;
     }>;
 }

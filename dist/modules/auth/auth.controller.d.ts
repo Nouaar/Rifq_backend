@@ -1,18 +1,33 @@
-import { AuthService } from './auth.service';
-import { RequestOtpDto } from './dto/request-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { AuthService, Tokens } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { Request } from 'express';
+import { User } from '../users/schemas/user.schema';
 export declare class AuthController {
-    private authService;
+    private readonly authService;
     constructor(authService: AuthService);
-    requestOtp(dto: RequestOtpDto): Promise<{
+    register(registerDto: RegisterDto): Promise<{
         message: string;
     }>;
-    verifyOtp(dto: VerifyOtpDto): Promise<{
-        access_token: string;
-        user: import("mongoose").Document<unknown, {}, import("../users/schemas/user.schema").UserDocument, {}, {}> & import("../users/schemas/user.schema").User & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
+    login(loginDto: LoginDto): Promise<{
+        user: User;
+        tokens: Tokens;
+    }>;
+    refresh(req: Request & {
+        user: {
+            sub: string;
+            refreshToken: string;
         };
+    }): Promise<Tokens>;
+    verifyEmail(verifyDto: VerifyEmailDto): Promise<{
+        message: string;
+    }>;
+    logout(req: Request & {
+        user: {
+            sub: string;
+        };
+    }): Promise<{
+        message: string;
     }>;
 }
