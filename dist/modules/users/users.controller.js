@@ -28,18 +28,27 @@ let UsersController = class UsersController {
         return this.usersService.findAll();
     }
     async findOne(id) {
-        return this.usersService.findOne(id);
+        const user = await this.usersService.findOne(id);
+        if (!user)
+            throw new common_1.NotFoundException(`User with ID ${id} not found`);
+        return user;
     }
     async update(id, updateUserDto) {
-        return this.usersService.update(id, updateUserDto);
+        const updatedUser = await this.usersService.update(id, updateUserDto);
+        if (!updatedUser)
+            throw new common_1.NotFoundException(`User with ID ${id} not found`);
+        return updatedUser;
     }
     async remove(id) {
-        return this.usersService.remove(id);
+        const deleted = await this.usersService.remove(id);
+        if (!deleted)
+            throw new common_1.NotFoundException(`User with ID ${id} not found`);
     }
 };
 exports.UsersController = UsersController;
 __decorate([
     (0, common_1.Post)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto]),
@@ -68,6 +77,7 @@ __decorate([
 ], UsersController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),

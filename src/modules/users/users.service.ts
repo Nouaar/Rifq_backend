@@ -1,3 +1,4 @@
+// src/modules/users/users.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -8,21 +9,21 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
     const createdUser = new this.userModel({
       ...createUserDto,
-      balance: 0,
-      isVerified: false,
+      balance: createUserDto.balance ?? 0,
+      isVerified: createUserDto.isVerified ?? false,
     });
-    return await createdUser.save();
+    return createdUser.save();
   }
 
   async findAll(): Promise<UserDocument[]> {
-    const users = await this.userModel.find().exec();
-    return users;
+    return this.userModel.find().exec();
   }
 
   async findOne(id: string): Promise<UserDocument> {
@@ -38,6 +39,7 @@ export class UsersService {
     const user = await this.userModel
       .findByIdAndUpdate(id, updateUserDto, { new: true })
       .exec();
+
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -49,15 +51,23 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<UserDocument | null> {
-    return await this.userModel.findById(id).exec();
+    return this.userModel.findById(id).exec();
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {
-    return await this.userModel.findOne({ email }).exec();
+    return this.userModel.findOne({ email }).exec();
   }
+
   async updateRefreshToken(userId: string, refreshToken: string | null) {
-    return this.userModel.findByIdAndUpdate(userId, {
-      hashedRefreshToken: refreshToken,
-    });
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { hashedRefreshToken: refreshToken },
+        { new: true },
+      )
+      .exec();
+
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 }

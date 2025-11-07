@@ -20,7 +20,7 @@ __decorate([
 ], VerifyEmailDto.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.Length)(6, 6),
+    (0, class_validator_1.Length)(4, 6),
     __metadata("design:type", String)
 ], VerifyEmailDto.prototype, "code", void 0);
 //# sourceMappingURL=verify-email.dto.js.map

@@ -24,14 +24,13 @@ let UsersService = class UsersService {
     async create(createUserDto) {
         const createdUser = new this.userModel({
             ...createUserDto,
-            balance: 0,
-            isVerified: false,
+            balance: createUserDto.balance ?? 0,
+            isVerified: createUserDto.isVerified ?? false,
         });
-        return await createdUser.save();
+        return createdUser.save();
     }
     async findAll() {
-        const users = await this.userModel.find().exec();
-        return users;
+        return this.userModel.find().exec();
     }
     async findOne(id) {
         const user = await this.userModel.findById(id).exec();
@@ -54,15 +53,18 @@ let UsersService = class UsersService {
         return user;
     }
     async findById(id) {
-        return await this.userModel.findById(id).exec();
+        return this.userModel.findById(id).exec();
     }
     async findByEmail(email) {
-        return await this.userModel.findOne({ email }).exec();
+        return this.userModel.findOne({ email }).exec();
     }
     async updateRefreshToken(userId, refreshToken) {
-        return this.userModel.findByIdAndUpdate(userId, {
-            hashedRefreshToken: refreshToken,
-        });
+        const user = await this.userModel
+            .findByIdAndUpdate(userId, { hashedRefreshToken: refreshToken }, { new: true })
+            .exec();
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        return user;
     }
 };
 exports.UsersService = UsersService;

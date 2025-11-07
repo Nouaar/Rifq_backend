@@ -41,48 +41,95 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); }
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
-const mongoose_1 = require("@nestjs/mongoose");
-const mongoose_2 = require("mongoose");
-const bcrypt = __importStar(require("bcryptjs"));
 const config_1 = require("@nestjs/config");
+const users_service_1 = require("../users/users.service");
 const mail_service_1 = require("../mail/mail.service");
-const user_schema_1 = require("../users/schemas/user.schema");
 const create_user_dto_1 = require("../users/dto/create-user.dto");
+const bcrypt = __importStar(require("bcryptjs"));
 let AuthService = class AuthService {
-    constructor(userModel, jwtService, configService, mailService) {
-        this.userModel = userModel;
+    constructor(usersService, jwtService, configService, mailService) {
+        this.usersService = usersService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.mailService = mailService;
+        this.accessSecret =
+            this.configService.getOrThrow('JWT_ACCESS_SECRET');
+        this.refreshSecret =
+            this.configService.getOrThrow('JWT_REFRESH_SECRET');
+        this.accessExpiresIn =
+            this.configService.get('JWT_ACCESS_EXPIRES_IN') ?? '15m';
+        this.refreshExpiresIn =
+            this.configService.get('JWT_REFRESH_EXPIRES_IN') ?? '7d';
+    }
+    async hashToken(token) {
+        return bcrypt.hash(token, 10);
+    }
+    async compareToken(token, hashed) {
+        if (!hashed)
+            return false;
+        return bcrypt.compare(token, hashed);
+    }
+    createAccessSignOptions() {
+        return {
+            secret: this.accessSecret,
+            expiresIn: this.accessExpiresIn,
+        };
+    }
+    createRefreshSignOptions() {
+        return {
+            secret: this.refreshSecret,
+            expiresIn: this.refreshExpiresIn,
+        };
+    }
+    async generateTokensForUser(user) {
+        const payload = {
+            sub: user._id.toString(),
+            email: user.email,
+            role: user.role,
+        };
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwtService.signAsync(payload, this.createAccessSignOptions()),
+            this.jwtService.signAsync(payload, this.createRefreshSignOptions()),
+        ]);
+        return { accessToken, refreshToken };
     }
     async register(email, name, password, role = create_user_dto_1.UserRole.OWNER) {
-        const existing = await this.userModel.findOne({ email }).exec();
+        const normalized = email.toLowerCase();
+        const existing = await this.usersService.findByEmail(normalized);
         if (existing)
             throw new common_1.BadRequestException('Email already registered');
         const hashedPassword = await bcrypt.hash(password, 10);
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const user = new this.userModel({
-            email,
+        const createDto = {
+            email: normalized,
             name,
             password: hashedPassword,
             role,
             isVerified: false,
             verificationCode,
             verificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
-        });
-        await user.save();
-        await this.mailService.sendVerificationCode(email, verificationCode);
+        };
+        await this.usersService.create(createDto);
+        try {
+            await this.mailService.sendVerificationCode(normalized, verificationCode);
+        }
+        catch (err) {
+            if (err instanceof Error) {
+                console.error('sendVerificationCode failed:', err.message);
+            }
+            else {
+                console.error('sendVerificationCode failed (unknown error)');
+            }
+        }
         return { message: 'Verification code sent to your email' };
     }
     async verifyEmail(email, code) {
-        const user = await this.userModel.findOne({ email }).exec();
+        const normalized = email.toLowerCase();
+        const user = await this.usersService.findByEmail(normalized);
         if (!user)
             throw new common_1.NotFoundException('User not found');
         if (user.isVerified)
@@ -94,81 +141,104 @@ let AuthService = class AuthService {
             user.verificationCodeExpires < now) {
             throw new common_1.BadRequestException('Invalid or expired verification code');
         }
-        user.isVerified = true;
-        user.verificationCode = undefined;
-        user.verificationCodeExpires = undefined;
-        await user.save();
+        await this.usersService.update(String(user._id), {
+            isVerified: true,
+            verificationCode: undefined,
+            verificationCodeExpires: undefined,
+        });
         return { message: 'Email verified successfully' };
     }
     async login(email, password) {
-        const user = await this.userModel.findOne({ email }).exec();
+        const normalized = email.toLowerCase();
+        const user = await this.usersService.findByEmail(normalized);
         if (!user)
             throw new common_1.UnauthorizedException('Invalid credentials');
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid)
+        const passwordValid = await bcrypt.compare(password, user.password);
+        if (!passwordValid)
             throw new common_1.UnauthorizedException('Invalid credentials');
         if (!user.isVerified)
             throw new common_1.UnauthorizedException('Please verify your email first');
-        const payload = {
-            sub: String(user._id),
+        const tokens = await this.generateTokensForUser(user);
+        const hashed = await this.hashToken(tokens.refreshToken);
+        await this.usersService.updateRefreshToken(String(user._id), hashed);
+        const safeUser = {
+            _id: user._id,
             email: user.email,
+            name: user.name,
             role: user.role,
+            isVerified: user.isVerified,
+            pets: user.pets,
         };
-        const accessTokenOptions = { expiresIn: '15m' };
-        const refreshTokenOptions = { expiresIn: '7d' };
-        const accessToken = this.jwtService.sign(payload, accessTokenOptions);
-        const refreshToken = this.jwtService.sign(payload, refreshTokenOptions);
-        user.hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-        await user.save();
-        return { user, tokens: { accessToken, refreshToken } };
+        return { user: safeUser, tokens };
     }
     async refreshTokens(userId, refreshToken) {
-        const user = await this.userModel.findById(userId).exec();
-        if (!user || !user.hashedRefreshToken)
+        const user = await this.usersService.findById(userId);
+        if (!user)
             throw new common_1.UnauthorizedException('Access denied');
-        const isTokenValid = await bcrypt.compare(refreshToken, user.hashedRefreshToken);
-        if (!isTokenValid)
+        const isValid = await this.compareToken(refreshToken, user.hashedRefreshToken);
+        if (!isValid)
             throw new common_1.UnauthorizedException('Invalid refresh token');
-        const payload = {
-            sub: String(user._id),
-            email: user.email,
-            role: user.role,
-        };
-        const accessTokenOptions = { expiresIn: '15m' };
-        const refreshTokenOptions = { expiresIn: '7d' };
-        const newAccessToken = this.jwtService.sign(payload, accessTokenOptions);
-        const newRefreshToken = this.jwtService.sign(payload, refreshTokenOptions);
-        user.hashedRefreshToken = await bcrypt.hash(newRefreshToken, 10);
-        await user.save();
-        return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+        const tokens = await this.generateTokensForUser(user);
+        const hashed = await this.hashToken(tokens.refreshToken);
+        await this.usersService.updateRefreshToken(String(user._id), hashed);
+        return tokens;
     }
     async logout(userId) {
-        const user = await this.userModel.findById(userId).exec();
+        const user = await this.usersService.findById(userId);
         if (!user)
             throw new common_1.NotFoundException('User not found');
-        user.hashedRefreshToken = undefined;
-        await user.save();
+        await this.usersService.updateRefreshToken(String(user._id), undefined);
         return { message: 'Logged out successfully' };
     }
     async resendVerificationCode(email) {
-        const user = await this.userModel.findOne({ email }).exec();
+        const normalized = email.toLowerCase();
+        const user = await this.usersService.findByEmail(normalized);
         if (!user)
             throw new common_1.NotFoundException('User not found');
         if (user.isVerified)
             throw new common_1.BadRequestException('User already verified');
+        if (user.verificationCodeExpires &&
+            user.verificationCodeExpires > new Date()) {
+            throw new common_1.BadRequestException('Verification code still valid. Please wait before requesting a new code.');
+        }
         const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-        user.verificationCode = newCode;
-        user.verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-        await user.save();
-        await this.mailService.sendVerificationCode(user.email, newCode);
+        await this.usersService.update(String(user._id), {
+            verificationCode: newCode,
+            verificationCodeExpires: new Date(Date.now() + 10 * 60 * 1000),
+        });
+        try {
+            await this.mailService.sendVerificationCode(user.email, newCode);
+        }
+        catch (err) {
+            if (err instanceof Error) {
+                console.error('Failed to send verification email:', err.message);
+            }
+            else {
+                console.error('Failed to send verification email (unknown error)');
+            }
+        }
         return { message: 'New verification code sent to your email' };
+    }
+    async getProfile(userId) {
+        const user = await this.usersService.findById(userId);
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        const safe = {
+            _id: user._id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            isVerified: user.isVerified,
+            pets: user.pets,
+            profileImage: user.profileImage,
+        };
+        return safe;
     }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model,
+    __metadata("design:paramtypes", [users_service_1.UsersService,
         jwt_1.JwtService,
         config_1.ConfigService,
         mail_service_1.MailService])

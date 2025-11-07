@@ -15,6 +15,7 @@ var UserRole;
 (function (UserRole) {
     UserRole["OWNER"] = "owner";
     UserRole["VET"] = "vet";
+    UserRole["ADMIN"] = "admin";
     UserRole["SITTER"] = "sitter";
 })(UserRole || (exports.UserRole = UserRole = {}));
 class CreateUserDto {
@@ -31,17 +32,19 @@ __decorate([
 ], CreateUserDto.prototype, "email", void 0);
 __decorate([
     (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "name", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(6),
+    (0, class_validator_1.MaxLength)(50),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "password", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(UserRole, {
-        message: 'Role must be one of: owner, vet, sitter',
+        message: 'Role must be one of: owner, vet, admin, sitter',
     }),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "role", void 0);
@@ -65,4 +68,59 @@ __decorate([
     (0, class_validator_1.IsDate)(),
     __metadata("design:type", Date)
 ], CreateUserDto.prototype, "verificationCodeExpires", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "refreshToken", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "hashedRefreshToken", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "specialization", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "clinicName", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "clinicAddress", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "Location", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "licenseNumber", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreateUserDto.prototype, "yearsOfExperience", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "phoneNumber", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "bio", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "profileImage", void 0);
 //# sourceMappingURL=create-user.dto.js.map

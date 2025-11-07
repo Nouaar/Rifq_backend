@@ -11,18 +11,17 @@ export declare class AuthController {
         message: string;
     }>;
     login(loginDto: LoginDto): Promise<{
-        user: User;
+        user: Partial<import("../users/schemas/user.schema").UserDocument>;
         tokens: Tokens;
     }>;
     refresh(req: Request & {
         user: {
             sub: string;
+        };
+        body: {
             refreshToken: string;
         };
     }): Promise<Tokens>;
-    verifyEmail(verifyDto: VerifyEmailDto): Promise<{
-        message: string;
-    }>;
     logout(req: Request & {
         user: {
             sub: string;
@@ -30,4 +29,8 @@ export declare class AuthController {
     }): Promise<{
         message: string;
     }>;
+    verifyEmail(verifyDto: VerifyEmailDto): Promise<{
+        message: string;
+    }>;
+    getProfile(user: User): Promise<Partial<import("../users/schemas/user.schema").UserDocument>>;
 }

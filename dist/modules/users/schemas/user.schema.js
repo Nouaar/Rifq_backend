@@ -20,6 +20,10 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "email", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "phoneNumber", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], User.prototype, "name", void 0);
@@ -29,6 +33,10 @@ __decorate([
 ], User.prototype, "password", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "profileImage", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 'owner', enum: ['owner', 'vet', 'admin', 'sitter'] }),
     __metadata("design:type", String)
 ], User.prototype, "role", void 0);
 __decorate([
@@ -55,6 +63,38 @@ __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], User.prototype, "hashedRefreshToken", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "specialization", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "clinicName", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "clinicAddress", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "Location", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "licenseNumber", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], User.prototype, "yearsOfExperience", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "bio", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [{ type: mongoose_2.Types.ObjectId, ref: 'Pet' }], default: [] }),
+    __metadata("design:type", Array)
+], User.prototype, "pets", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)()
 ], User);

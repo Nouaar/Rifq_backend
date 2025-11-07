@@ -9,5 +9,5 @@ export declare class UsersController {
     findAll(): Promise<User[]>;
     findOne(id: string): Promise<User>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<User>;
-    remove(id: string): Promise<User>;
+    remove(id: string): Promise<void>;
 }

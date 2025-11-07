@@ -12,6 +12,7 @@ const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const users_module_1 = require("./modules/users/users.module");
 const auth_module_1 = require("./modules/auth/auth.module");
+const pets_module_1 = require("./modules/pets/pets.module");
 const mongoose_1 = require("@nestjs/mongoose");
 const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
@@ -24,6 +25,7 @@ exports.AppModule = AppModule = __decorate([
             mongoose_1.MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost/rifq'),
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
+            pets_module_1.PetsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
