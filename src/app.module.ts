@@ -1,3 +1,4 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -6,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { PetsModule } from './modules/pets/pets.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -14,6 +16,7 @@ import { ConfigModule } from '@nestjs/config';
     UsersModule,
     AuthModule,
     PetsModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
