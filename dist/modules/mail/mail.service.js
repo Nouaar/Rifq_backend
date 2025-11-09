@@ -11,23 +11,33 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailService = void 0;
 const common_1 = require("@nestjs/common");
-const mailer_1 = require("@nestjs-modules/mailer");
+const sgMail = require("@sendgrid/mail");
 let MailService = class MailService {
-    constructor(mailerService) {
-        this.mailerService = mailerService;
+    constructor() {
+        const apiKey = process.env.SENDGRID_API_KEY;
+        if (!apiKey) {
+            throw new Error('SENDGRID_API_KEY is not defined');
+        }
+        sgMail.setApiKey(apiKey);
     }
     async sendVerificationCode(email, code) {
+        const from = process.env.MAIL_FROM;
+        if (!from) {
+            throw new Error('MAIL_FROM is not defined');
+        }
+        const msg = {
+            to: email,
+            from: from,
+            subject: 'Verify your email address',
+            html: `
+        <h2>Your verification code</h2>
+        <p>Use this code to verify your email:</p>
+        <h1 style="font-size: 32px; letter-spacing: 4px;">${code}</h1>
+        <p>This code will expire in 10 minutes.</p>
+      `,
+        };
         try {
-            await this.mailerService.sendMail({
-                to: email,
-                subject: 'Verify your email address',
-                html: `
-          <h2>Your verification code</h2>
-          <p>Use this code to verify your email:</p>
-          <h1 style="font-size: 32px; letter-spacing: 4px;">${code}</h1>
-          <p>This code will expire in 10 minutes.</p>
-        `,
-            });
+            await sgMail.send(msg);
             console.log(`Verification email sent to ${email}`);
         }
         catch (err) {
@@ -39,6 +49,6 @@ let MailService = class MailService {
 exports.MailService = MailService;
 exports.MailService = MailService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [mailer_1.MailerService])
+    __metadata("design:paramtypes", [])
 ], MailService);
 //# sourceMappingURL=mail.service.js.map
