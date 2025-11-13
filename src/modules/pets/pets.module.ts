@@ -9,6 +9,7 @@ import {
   MedicalHistory,
   MedicalHistorySchema,
 } from './schemas/medical-history.schema';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import {
       { name: User.name, schema: UserSchema },
       { name: MedicalHistory.name, schema: MedicalHistorySchema },
     ]),
+    CloudinaryModule,
   ],
   controllers: [PetsController],
   providers: [PetsService],

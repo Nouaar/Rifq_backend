@@ -5,12 +5,14 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
@@ -80,16 +82,41 @@ export class UsersService {
       city?: string;
       hasPhoto?: boolean;
       hasPets?: boolean;
-    }>
+    }>,
+    file?: any,
   ): Promise<UserDocument> {
     const payload: Record<string, unknown> = {};
 
     if (update.name !== undefined) payload.name = update.name;
-    if (update.phoneNumber !== undefined) payload.phoneNumber = update.phoneNumber;
+    if (update.phoneNumber !== undefined)
+      payload.phoneNumber = update.phoneNumber;
     if (update.country !== undefined) payload.country = update.country;
     if (update.city !== undefined) payload.city = update.city;
     if (update.hasPhoto !== undefined) payload.hasPhoto = update.hasPhoto;
     if (update.hasPets !== undefined) payload.hasPets = update.hasPets;
+
+    // Handle image upload if file is provided
+    if (file) {
+      const user = await this.findById(userId);
+      if (!user) throw new NotFoundException('User not found');
+
+      // Delete old image if exists
+      if (user.profileImage) {
+        const publicId = this.extractPublicId(user.profileImage);
+        if (publicId) {
+          await this.cloudinaryService.deleteImage(publicId);
+        }
+      }
+
+      // Upload new image
+      const result = await this.cloudinaryService.uploadImage(
+        file,
+        'users/profiles',
+      );
+
+      payload.profileImage = result.secure_url as string;
+      payload.hasPhoto = true;
+    }
 
     const user = await this.userModel
       .findByIdAndUpdate(userId, payload, { new: true })
@@ -97,5 +124,10 @@ export class UsersService {
 
     if (!user) throw new NotFoundException('User not found');
     return user;
+  }
+
+  private extractPublicId(imageUrl: string): string | null {
+    const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);
+    return matches ? matches[1] : null;
   }
 }

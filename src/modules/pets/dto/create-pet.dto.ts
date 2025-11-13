@@ -23,6 +23,7 @@ export class CreatePetDto {
   breed?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   age?: number;
 
@@ -35,10 +36,12 @@ export class CreatePetDto {
   color?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   weight?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   height?: number;
 

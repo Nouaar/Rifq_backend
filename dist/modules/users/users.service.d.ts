@@ -2,9 +2,11 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export declare class UsersService {
     private readonly userModel;
-    constructor(userModel: Model<UserDocument>);
+    private readonly cloudinaryService;
+    constructor(userModel: Model<UserDocument>, cloudinaryService: CloudinaryService);
     create(createUserDto: CreateUserDto): Promise<UserDocument>;
     findAll(): Promise<UserDocument[]>;
     findOne(id: string): Promise<UserDocument>;
@@ -24,5 +26,6 @@ export declare class UsersService {
         city?: string;
         hasPhoto?: boolean;
         hasPets?: boolean;
-    }>): Promise<UserDocument>;
+    }>, file?: any): Promise<UserDocument>;
+    private extractPublicId;
 }

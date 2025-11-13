@@ -10,6 +10,7 @@ import {
   MedicalHistory,
   MedicalHistoryDocument,
 } from './schemas/medical-history.schema';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class PetsService {
@@ -18,16 +19,29 @@ export class PetsService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(MedicalHistory.name)
     private medicalHistoryModel: Model<MedicalHistoryDocument>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  async create(ownerId: string, createPetDto: CreatePetDto): Promise<Pet> {
+  async create(
+    ownerId: string,
+    createPetDto: CreatePetDto,
+    file?: any,
+  ): Promise<Pet> {
     const owner = await this.userModel.findById(ownerId);
     if (!owner) throw new NotFoundException('Owner not found');
 
     const { medicalHistory, ...petData } = createPetDto;
 
+    // Handle photo upload if file is provided
+    let photoUrl: string | undefined;
+    if (file) {
+      const result = await this.cloudinaryService.uploadImage(file, 'pets');
+      photoUrl = result.secure_url as string;
+    }
+
     const pet = await this.petModel.create({
       ...petData,
+      photo: photoUrl,
       owner: new Types.ObjectId(ownerId),
     });
 
@@ -61,11 +75,30 @@ export class PetsService {
     return pet;
   }
 
-  async update(petId: string, updatePetDto: UpdatePetDto): Promise<Pet> {
+  async update(
+    petId: string,
+    updatePetDto: UpdatePetDto,
+    file?: any,
+  ): Promise<Pet> {
     const { medicalHistory, ...petUpdates } = updatePetDto;
 
     const pet = await this.petModel.findById(petId);
     if (!pet) throw new NotFoundException('Pet not found');
+
+    // Handle photo upload if file is provided
+    if (file) {
+      // Delete old photo if exists
+      if (pet.photo) {
+        const publicId = this.extractPublicId(pet.photo);
+        if (publicId) {
+          await this.cloudinaryService.deleteImage(publicId);
+        }
+      }
+
+      // Upload new photo
+      const result = await this.cloudinaryService.uploadImage(file, 'pets');
+      pet.photo = result.secure_url as string;
+    }
 
     const petUpdateEntries = Object.entries(petUpdates).filter(
       ([, value]) => value !== undefined,
@@ -121,11 +154,23 @@ export class PetsService {
     });
     if (!pet) throw new NotFoundException('Pet not found or not yours');
 
-    await this.userModel.findByIdAndUpdate(
-      new Types.ObjectId(ownerId),
-      { $pull: { pets: new Types.ObjectId(petId) } }
-    );
+    // Delete pet photo from Cloudinary if exists
+    if (pet.photo) {
+      const publicId = this.extractPublicId(pet.photo);
+      if (publicId) {
+        await this.cloudinaryService.deleteImage(publicId);
+      }
+    }
+
+    await this.userModel.findByIdAndUpdate(new Types.ObjectId(ownerId), {
+      $pull: { pets: new Types.ObjectId(petId) },
+    });
 
     await this.medicalHistoryModel.findOneAndDelete({ pet: pet._id });
+  }
+
+  private extractPublicId(imageUrl: string): string | null {
+    const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);
+    return matches ? matches[1] : null;
   }
 }

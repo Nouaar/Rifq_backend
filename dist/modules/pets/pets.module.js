@@ -14,6 +14,7 @@ const pets_service_1 = require("./pets.service");
 const pet_schema_1 = require("./schemas/pet.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
 const medical_history_schema_1 = require("./schemas/medical-history.schema");
+const cloudinary_module_1 = require("../cloudinary/cloudinary.module");
 let PetsModule = class PetsModule {
 };
 exports.PetsModule = PetsModule;
@@ -25,6 +26,7 @@ exports.PetsModule = PetsModule = __decorate([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: medical_history_schema_1.MedicalHistory.name, schema: medical_history_schema_1.MedicalHistorySchema },
             ]),
+            cloudinary_module_1.CloudinaryModule,
         ],
         controllers: [pets_controller_1.PetsController],
         providers: [pets_service_1.PetsService],

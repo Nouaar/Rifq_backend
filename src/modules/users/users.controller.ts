@@ -13,7 +13,11 @@ import {
   HttpStatus,
   NotFoundException,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -22,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+@ApiTags('users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -61,19 +66,64 @@ export class UsersController {
 
   @Patch('profile')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user profile with optional image upload' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: {
+          type: 'string',
+          format: 'binary',
+          description: 'Profile image file (optional)',
+        },
+        name: {
+          type: 'string',
+          description: 'User name',
+        },
+        phoneNumber: {
+          type: 'string',
+          description: 'Phone number',
+        },
+        country: {
+          type: 'string',
+          description: 'Country',
+        },
+        city: {
+          type: 'string',
+          description: 'City',
+        },
+        hasPhoto: {
+          type: 'boolean',
+          description: 'Has photo flag',
+        },
+        hasPets: {
+          type: 'boolean',
+          description: 'Has pets flag',
+        },
+      },
+    },
+  })
   async updateProfile(
     @CurrentUser() user: User,
     @Body() payload: UpdateProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
   ): Promise<User> {
     const phoneNumber = payload.phoneNumber ?? payload.phone;
-    return this.usersService.updateProfile(user._id.toString(), {
-      name: payload.name,
-      phoneNumber,
-      country: payload.country,
-      city: payload.city,
-      hasPhoto: payload.hasPhoto,
-      hasPets: payload.hasPets,
-    });
+    return this.usersService.updateProfile(
+      user._id.toString(),
+      {
+        name: payload.name,
+        phoneNumber,
+        country: payload.country,
+        city: payload.city,
+        hasPhoto: payload.hasPhoto,
+        hasPets: payload.hasPets,
+      },
+      file,
+    );
   }
 
   // Delete user

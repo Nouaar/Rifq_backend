@@ -30,16 +30,14 @@ export class CreateSitterDto {
   @IsString()
   phoneNumber?: string;
 
-  // Sitter-specific required fields
   @IsNotEmpty()
   @IsNumber()
   hourlyRate: number;
 
   @IsNotEmpty()
   @IsString()
-  sitterAddress: string; // Address field from form
+  sitterAddress: string;
 
-  // Sitter-specific optional fields
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -59,7 +57,7 @@ export class CreateSitterDto {
 
   @IsOptional()
   @IsArray()
-  availability?: (Date | string)[]; // Accept both Date objects and ISO date strings
+  availability?: (Date | string)[];
 
   @IsOptional()
   @IsNumber()
@@ -73,4 +71,3 @@ export class CreateSitterDto {
   @IsString()
   bio?: string;
 }
-

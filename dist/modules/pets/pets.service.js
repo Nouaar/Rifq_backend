@@ -19,19 +19,27 @@ const mongoose_2 = require("mongoose");
 const pet_schema_1 = require("./schemas/pet.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
 const medical_history_schema_1 = require("./schemas/medical-history.schema");
+const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let PetsService = class PetsService {
-    constructor(petModel, userModel, medicalHistoryModel) {
+    constructor(petModel, userModel, medicalHistoryModel, cloudinaryService) {
         this.petModel = petModel;
         this.userModel = userModel;
         this.medicalHistoryModel = medicalHistoryModel;
+        this.cloudinaryService = cloudinaryService;
     }
-    async create(ownerId, createPetDto) {
+    async create(ownerId, createPetDto, file) {
         const owner = await this.userModel.findById(ownerId);
         if (!owner)
             throw new common_1.NotFoundException('Owner not found');
         const { medicalHistory, ...petData } = createPetDto;
+        let photoUrl;
+        if (file) {
+            const result = await this.cloudinaryService.uploadImage(file, 'pets');
+            photoUrl = result.secure_url;
+        }
         const pet = await this.petModel.create({
             ...petData,
+            photo: photoUrl,
             owner: new mongoose_2.Types.ObjectId(ownerId),
         });
         owner.pets.push(pet._id);
@@ -59,11 +67,21 @@ let PetsService = class PetsService {
             throw new common_1.NotFoundException('Pet not found');
         return pet;
     }
-    async update(petId, updatePetDto) {
+    async update(petId, updatePetDto, file) {
         const { medicalHistory, ...petUpdates } = updatePetDto;
         const pet = await this.petModel.findById(petId);
         if (!pet)
             throw new common_1.NotFoundException('Pet not found');
+        if (file) {
+            if (pet.photo) {
+                const publicId = this.extractPublicId(pet.photo);
+                if (publicId) {
+                    await this.cloudinaryService.deleteImage(publicId);
+                }
+            }
+            const result = await this.cloudinaryService.uploadImage(file, 'pets');
+            pet.photo = result.secure_url;
+        }
         const petUpdateEntries = Object.entries(petUpdates).filter(([, value]) => value !== undefined);
         if (petUpdateEntries.length > 0) {
             petUpdateEntries.forEach(([key, value]) => {
@@ -103,8 +121,20 @@ let PetsService = class PetsService {
         });
         if (!pet)
             throw new common_1.NotFoundException('Pet not found or not yours');
-        await this.userModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(ownerId), { $pull: { pets: new mongoose_2.Types.ObjectId(petId) } });
+        if (pet.photo) {
+            const publicId = this.extractPublicId(pet.photo);
+            if (publicId) {
+                await this.cloudinaryService.deleteImage(publicId);
+            }
+        }
+        await this.userModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(ownerId), {
+            $pull: { pets: new mongoose_2.Types.ObjectId(petId) },
+        });
         await this.medicalHistoryModel.findOneAndDelete({ pet: pet._id });
+    }
+    extractPublicId(imageUrl) {
+        const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);
+        return matches ? matches[1] : null;
     }
 };
 exports.PetsService = PetsService;
@@ -115,6 +145,7 @@ exports.PetsService = PetsService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(medical_history_schema_1.MedicalHistory.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        cloudinary_service_1.CloudinaryService])
 ], PetsService);
 //# sourceMappingURL=pets.service.js.map

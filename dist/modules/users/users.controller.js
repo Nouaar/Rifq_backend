@@ -14,6 +14,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
+const swagger_1 = require("@nestjs/swagger");
 const users_service_1 = require("./users.service");
 const create_user_dto_1 = require("./dto/create-user.dto");
 const update_user_dto_1 = require("./dto/update-user.dto");
@@ -43,7 +45,7 @@ let UsersController = class UsersController {
             throw new common_1.NotFoundException(`User with ID ${id} not found`);
         return updatedUser;
     }
-    async updateProfile(user, payload) {
+    async updateProfile(user, payload, file) {
         const phoneNumber = payload.phoneNumber ?? payload.phone;
         return this.usersService.updateProfile(user._id.toString(), {
             name: payload.name,
@@ -52,7 +54,7 @@ let UsersController = class UsersController {
             city: payload.city,
             hasPhoto: payload.hasPhoto,
             hasPets: payload.hasPets,
-        });
+        }, file);
     }
     async remove(id) {
         const deleted = await this.usersService.remove(id);
@@ -93,11 +95,52 @@ __decorate([
 __decorate([
     (0, common_1.Patch)('profile'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('image')),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update user profile with optional image upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                image: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Profile image file (optional)',
+                },
+                name: {
+                    type: 'string',
+                    description: 'User name',
+                },
+                phoneNumber: {
+                    type: 'string',
+                    description: 'Phone number',
+                },
+                country: {
+                    type: 'string',
+                    description: 'Country',
+                },
+                city: {
+                    type: 'string',
+                    description: 'City',
+                },
+                hasPhoto: {
+                    type: 'boolean',
+                    description: 'Has photo flag',
+                },
+                hasPets: {
+                    type: 'boolean',
+                    description: 'Has pets flag',
+                },
+            },
+        },
+    }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [user_schema_1.User,
-        update_profile_dto_1.UpdateProfileDto]),
+        update_profile_dto_1.UpdateProfileDto, Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "updateProfile", null);
 __decorate([
@@ -109,6 +152,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "remove", null);
 exports.UsersController = UsersController = __decorate([
+    (0, swagger_1.ApiTags)('users'),
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService])
 ], UsersController);

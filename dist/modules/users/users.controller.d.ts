@@ -10,6 +10,6 @@ export declare class UsersController {
     findAll(): Promise<User[]>;
     findOne(id: string): Promise<User>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<User>;
-    updateProfile(user: User, payload: UpdateProfileDto): Promise<User>;
+    updateProfile(user: User, payload: UpdateProfileDto, file?: Express.Multer.File): Promise<User>;
     remove(id: string): Promise<void>;
 }

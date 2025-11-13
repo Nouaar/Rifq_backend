@@ -33,6 +33,7 @@ __decorate([
 ], CreatePetDto.prototype, "breed", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreatePetDto.prototype, "age", void 0);
@@ -48,11 +49,13 @@ __decorate([
 ], CreatePetDto.prototype, "color", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreatePetDto.prototype, "weight", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreatePetDto.prototype, "height", void 0);

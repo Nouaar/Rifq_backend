@@ -17,9 +17,11 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const user_schema_1 = require("./schemas/user.schema");
+const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let UsersService = class UsersService {
-    constructor(userModel) {
+    constructor(userModel, cloudinaryService) {
         this.userModel = userModel;
+        this.cloudinaryService = cloudinaryService;
     }
     async create(createUserDto) {
         const createdUser = new this.userModel({
@@ -66,7 +68,7 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException('User not found');
         return user;
     }
-    async updateProfile(userId, update) {
+    async updateProfile(userId, update, file) {
         const payload = {};
         if (update.name !== undefined)
             payload.name = update.name;
@@ -80,6 +82,20 @@ let UsersService = class UsersService {
             payload.hasPhoto = update.hasPhoto;
         if (update.hasPets !== undefined)
             payload.hasPets = update.hasPets;
+        if (file) {
+            const user = await this.findById(userId);
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
+            if (user.profileImage) {
+                const publicId = this.extractPublicId(user.profileImage);
+                if (publicId) {
+                    await this.cloudinaryService.deleteImage(publicId);
+                }
+            }
+            const result = await this.cloudinaryService.uploadImage(file, 'users/profiles');
+            payload.profileImage = result.secure_url;
+            payload.hasPhoto = true;
+        }
         const user = await this.userModel
             .findByIdAndUpdate(userId, payload, { new: true })
             .exec();
@@ -87,11 +103,16 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException('User not found');
         return user;
     }
+    extractPublicId(imageUrl) {
+        const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);
+        return matches ? matches[1] : null;
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        cloudinary_service_1.CloudinaryService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map

@@ -4,14 +4,17 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
 import { MedicalHistoryDocument } from './schemas/medical-history.schema';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export declare class PetsService {
     private petModel;
     private userModel;
     private medicalHistoryModel;
-    constructor(petModel: Model<PetDocument>, userModel: Model<UserDocument>, medicalHistoryModel: Model<MedicalHistoryDocument>);
-    create(ownerId: string, createPetDto: CreatePetDto): Promise<Pet>;
+    private readonly cloudinaryService;
+    constructor(petModel: Model<PetDocument>, userModel: Model<UserDocument>, medicalHistoryModel: Model<MedicalHistoryDocument>, cloudinaryService: CloudinaryService);
+    create(ownerId: string, createPetDto: CreatePetDto, file?: any): Promise<Pet>;
     findAllByOwner(ownerId: string): Promise<Pet[]>;
     findOne(petId: string): Promise<Pet>;
-    update(petId: string, updatePetDto: UpdatePetDto): Promise<Pet>;
+    update(petId: string, updatePetDto: UpdatePetDto, file?: any): Promise<Pet>;
     delete(petId: string, ownerId: string): Promise<void>;
+    private extractPublicId;
 }
