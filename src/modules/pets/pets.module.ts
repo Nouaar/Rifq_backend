@@ -5,12 +5,17 @@ import { PetsController } from './pets.controller';
 import { PetsService } from './pets.service';
 import { Pet, PetSchema } from './schemas/pet.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
+import {
+  MedicalHistory,
+  MedicalHistorySchema,
+} from './schemas/medical-history.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Pet.name, schema: PetSchema },
       { name: User.name, schema: UserSchema },
+      { name: MedicalHistory.name, schema: MedicalHistorySchema },
     ]),
   ],
   controllers: [PetsController],

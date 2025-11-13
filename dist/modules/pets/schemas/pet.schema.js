@@ -44,6 +44,22 @@ __decorate([
     __metadata("design:type", Number)
 ], Pet.prototype, "weight", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Pet.prototype, "height", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Pet.prototype, "photo", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ unique: true, sparse: true }),
+    __metadata("design:type", String)
+], Pet.prototype, "microchipId", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'MedicalHistory' }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Pet.prototype, "medicalHistory", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Pet.prototype, "owner", void 0);

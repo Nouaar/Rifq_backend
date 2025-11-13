@@ -24,17 +24,29 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "phoneNumber", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "country", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "city", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], User.prototype, "name", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], User.prototype, "password", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], User.prototype, "profileImage", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "hasPhoto", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: 'owner', enum: ['owner', 'vet', 'admin', 'sitter'] }),
     __metadata("design:type", String)
@@ -64,9 +76,9 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "hashedRefreshToken", void 0);
 __decorate([
-    (0, mongoose_1.Prop)(),
-    __metadata("design:type", String)
-], User.prototype, "specialization", void 0);
+    (0, mongoose_1.Prop)({ type: [String], default: [] }),
+    __metadata("design:type", Array)
+], User.prototype, "specializations", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
@@ -92,9 +104,49 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "bio", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], User.prototype, "latitude", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], User.prototype, "longitude", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [String], default: [] }),
+    __metadata("design:type", Array)
+], User.prototype, "services", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], User.prototype, "hourlyRate", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "availableWeekends", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "canHostPets", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [Date], default: [] }),
+    __metadata("design:type", Array)
+], User.prototype, "availability", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ type: [{ type: mongoose_2.Types.ObjectId, ref: 'Pet' }], default: [] }),
     __metadata("design:type", Array)
 ], User.prototype, "pets", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "hasPets", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 'local' }),
+    __metadata("design:type", String)
+], User.prototype, "provider", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], User.prototype, "providerId", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)()
 ], User);

@@ -17,6 +17,10 @@ const common_1 = require("@nestjs/common");
 const users_service_1 = require("./users.service");
 const create_user_dto_1 = require("./dto/create-user.dto");
 const update_user_dto_1 = require("./dto/update-user.dto");
+const user_schema_1 = require("./schemas/user.schema");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const update_profile_dto_1 = require("./dto/update-profile.dto");
 let UsersController = class UsersController {
     constructor(usersService) {
         this.usersService = usersService;
@@ -38,6 +42,17 @@ let UsersController = class UsersController {
         if (!updatedUser)
             throw new common_1.NotFoundException(`User with ID ${id} not found`);
         return updatedUser;
+    }
+    async updateProfile(user, payload) {
+        const phoneNumber = payload.phoneNumber ?? payload.phone;
+        return this.usersService.updateProfile(user._id.toString(), {
+            name: payload.name,
+            phoneNumber,
+            country: payload.country,
+            city: payload.city,
+            hasPhoto: payload.hasPhoto,
+            hasPets: payload.hasPets,
+        });
     }
     async remove(id) {
         const deleted = await this.usersService.remove(id);
@@ -75,6 +90,16 @@ __decorate([
     __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "update", null);
+__decorate([
+    (0, common_1.Patch)('profile'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [user_schema_1.User,
+        update_profile_dto_1.UpdateProfileDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),

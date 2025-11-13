@@ -13,6 +13,7 @@ const pets_controller_1 = require("./pets.controller");
 const pets_service_1 = require("./pets.service");
 const pet_schema_1 = require("./schemas/pet.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
+const medical_history_schema_1 = require("./schemas/medical-history.schema");
 let PetsModule = class PetsModule {
 };
 exports.PetsModule = PetsModule;
@@ -22,6 +23,7 @@ exports.PetsModule = PetsModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: pet_schema_1.Pet.name, schema: pet_schema_1.PetSchema },
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
+                { name: medical_history_schema_1.MedicalHistory.name, schema: medical_history_schema_1.MedicalHistorySchema },
             ]),
         ],
         controllers: [pets_controller_1.PetsController],

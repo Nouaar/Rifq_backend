@@ -16,14 +16,23 @@ export class User extends Document {
   @Prop()
   phoneNumber?: string;
 
+  @Prop()
+  country?: string;
+
+  @Prop()
+  city?: string;
+
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop()
   password: string;
 
   @Prop()
   profileImage?: string;
+
+  @Prop({ default: false })
+  hasPhoto?: boolean;
 
   // By default, every user is an "owner"
   @Prop({ default: 'owner', enum: ['owner', 'vet', 'admin', 'sitter'] })
@@ -48,8 +57,8 @@ export class User extends Document {
   hashedRefreshToken?: string;
 
   // Vet-specific fields (optional)
-  @Prop()
-  specialization?: string;
+  @Prop({ type: [String], default: [] })
+  specializations?: string[]; // Array of specialties: general, surgery, dermatology, etc.
 
   @Prop()
   clinicName?: string;
@@ -69,9 +78,41 @@ export class User extends Document {
   @Prop()
   bio?: string;
 
+  // Location coordinates (for both vets and sitters)
+  @Prop()
+  latitude?: number;
+
+  @Prop()
+  longitude?: number;
+
+  // Pet Sitter-specific fields (optional)
+  @Prop({ type: [String], default: [] })
+  services?: string[]; // Array of services: walking, homeVisits, daycare, etc.
+
+  @Prop()
+  hourlyRate?: number;
+
+  @Prop({ default: false })
+  availableWeekends?: boolean;
+
+  @Prop({ default: false })
+  canHostPets?: boolean;
+
+  @Prop({ type: [Date], default: [] })
+  availability?: Date[]; // Array of available dates
+
   // Relationship: one owner can have many pets
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Pet' }], default: [] })
   pets: Types.ObjectId[];
+
+  @Prop({ default: false })
+  hasPets?: boolean;
+
+     @Prop({ default: 'local' })
+  provider: 'local' | 'google';
+
+  @Prop()
+  providerId?: string; // Google "sub" field (user unique ID)
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

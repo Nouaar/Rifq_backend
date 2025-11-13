@@ -1,5 +1,13 @@
 // src/modules/pets/dto/create-pet.dto.ts
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateMedicalHistoryDto } from './medical-history.dto';
 
 export class CreatePetDto {
   @IsString()
@@ -29,4 +37,21 @@ export class CreatePetDto {
   @IsOptional()
   @IsNumber()
   weight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  height?: number;
+
+  @IsOptional()
+  @IsString()
+  photo?: string;
+
+  @IsOptional()
+  @IsString()
+  microchipId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateMedicalHistoryDto)
+  medicalHistory?: CreateMedicalHistoryDto;
 }

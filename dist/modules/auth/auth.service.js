@@ -50,12 +50,16 @@ const users_service_1 = require("../users/users.service");
 const mail_service_1 = require("../mail/mail.service");
 const create_user_dto_1 = require("../users/dto/create-user.dto");
 const bcrypt = __importStar(require("bcryptjs"));
+const jose_1 = require("jose");
+const GOOGLE_ISS = 'https://accounts.google.com';
+const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 let AuthService = class AuthService {
     constructor(usersService, jwtService, configService, mailService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.mailService = mailService;
+        this.jwks = (0, jose_1.createRemoteJWKSet)(new URL(GOOGLE_JWKS_URL));
         this.accessSecret =
             this.configService.getOrThrow('JWT_ACCESS_SECRET');
         this.refreshSecret =
@@ -233,6 +237,82 @@ let AuthService = class AuthService {
             profileImage: user.profileImage,
         };
         return safe;
+    }
+    async signInWithGoogle(idToken) {
+        const audience = this.configService.get('GOOGLE_IOS_CLIENT_ID');
+        let payload;
+        try {
+            const verified = await (0, jose_1.jwtVerify)(idToken, this.jwks, {
+                issuer: GOOGLE_ISS,
+                audience,
+            });
+            payload = verified.payload;
+        }
+        catch {
+            throw new common_1.UnauthorizedException('Invalid Google token');
+        }
+        const { sub, email, email_verified, name, picture } = payload;
+        if (!email || email_verified !== true) {
+            throw new common_1.UnauthorizedException('Email not verified with Google');
+        }
+        let user = this.usersService.findByProvider
+            ? await this.usersService.findByProvider('google', sub)
+            : null;
+        if (!user) {
+            user = await this.usersService.findByEmail(email);
+        }
+        if (!user) {
+            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const expires = new Date(Date.now() + 10 * 60 * 1000);
+            user = await this.usersService.create({
+                email,
+                name,
+                profileImage: picture,
+                provider: 'google',
+                providerId: sub,
+                isVerified: false,
+                verificationCode,
+                verificationCodeExpires: expires,
+            });
+            try {
+                await this.mailService.sendVerificationCode(email, verificationCode);
+            }
+            catch (e) {
+                console.error('sendVerificationCode failed:', e?.message ?? e);
+            }
+        }
+        else {
+            const needsUpdate = user.provider !== 'google' ||
+                user.providerId !== sub ||
+                user.profileImage !== picture ||
+                user.name !== name;
+            if (needsUpdate) {
+                user = await this.usersService.update(user._id, {
+                    provider: 'google',
+                    providerId: sub,
+                    profileImage: picture ?? user.profileImage,
+                    name: name ?? user.name,
+                });
+            }
+        }
+        const { accessToken, refreshToken } = await this.generateTokensForUser(user);
+        user.hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+        if (typeof user.save === 'function') {
+            await user.save();
+        }
+        else if (typeof this.usersService.saveRefreshHash === 'function') {
+            await this.usersService.saveRefreshHash(user._id, user.hashedRefreshToken);
+        }
+        return {
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                profileImage: user.profileImage,
+                isVerified: user.isVerified,
+            },
+            tokens: { accessToken, refreshToken },
+        };
     }
 };
 exports.AuthService = AuthService;

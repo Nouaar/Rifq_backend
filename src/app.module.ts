@@ -5,6 +5,8 @@ import { AppService } from './app.service';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { PetsModule } from './modules/pets/pets.module';
+import { VeterinariansModule } from './modules/veterinarians/veterinarians.module';
+import { PetSittersModule } from './modules/pet-sitters/pet-sitters.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { MailModule } from './modules/mail/mail.module';
@@ -16,6 +18,8 @@ import { MailModule } from './modules/mail/mail.module';
     UsersModule,
     AuthModule,
     PetsModule,
+    VeterinariansModule,
+    PetSittersModule,
     MailModule,
   ],
   controllers: [AppController],

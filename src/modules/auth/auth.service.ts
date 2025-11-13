@@ -13,6 +13,10 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { CreateUserDto, UserRole } from '../users/dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
 
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+const GOOGLE_ISS = 'https://accounts.google.com';
+const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
+
 export interface Tokens {
   accessToken: string;
   refreshToken: string;
@@ -24,6 +28,8 @@ export class AuthService {
   private readonly refreshSecret: string;
   private readonly accessExpiresIn: string;
   private readonly refreshExpiresIn: string;
+
+      private jwks = createRemoteJWKSet(new URL(GOOGLE_JWKS_URL));
 
   constructor(
     private readonly usersService: UsersService,
@@ -272,4 +278,99 @@ export class AuthService {
 
     return safe;
   }
+
+
+  /** Sign in with Google */
+async signInWithGoogle(idToken: string) {
+  const audience = this.configService.get<string>('GOOGLE_IOS_CLIENT_ID');
+  let payload: any;
+
+  try {
+    const verified = await jwtVerify(idToken, this.jwks, {
+      issuer: GOOGLE_ISS,
+      audience,
+    });
+    payload = verified.payload;
+  } catch {
+    throw new UnauthorizedException('Invalid Google token');
+  }
+
+  const { sub, email, email_verified, name, picture } = payload as any;
+  if (!email || email_verified !== true) {
+    throw new UnauthorizedException('Email not verified with Google');
+  }
+
+  // 1) Find existing user by provider or email
+  let user =
+    (this.usersService as any).findByProvider
+      ? await (this.usersService as any).findByProvider('google', sub)
+      : null;
+
+  if (!user) {
+    user = await this.usersService.findByEmail(email);
+  }
+
+  // 2) Create or update user
+  if (!user) {
+    // First-time Google user → require email verification
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+    user = await this.usersService.create({
+      email,
+      name,
+      profileImage: picture,
+      provider: 'google',
+      providerId: sub,
+      isVerified: false,
+      verificationCode,
+      verificationCodeExpires: expires,
+      // role: UserRole.OWNER, // if you want to force a role
+    } as unknown as CreateUserDto);
+
+    // Send code (best effort)
+    try { await this.mailService.sendVerificationCode(email, verificationCode); }
+    catch (e) { console.error('sendVerificationCode failed:', (e as Error)?.message ?? e); }
+  } else {
+    // Keep provider linkage up to date
+    const needsUpdate =
+      user.provider !== 'google' ||
+      user.providerId !== sub ||
+      user.profileImage !== picture ||
+      user.name !== name;
+
+    if (needsUpdate) {
+      user = await this.usersService.update(user._id, {
+        provider: 'google',
+        providerId: sub,
+        profileImage: picture ?? user.profileImage,
+        name: name ?? user.name,
+      });
+    }
+  }
+
+  // 3) Issue tokens (same as password login)
+  const { accessToken, refreshToken } = await this.generateTokensForUser(user);
+
+  // 4) Store only hashed refresh token
+  user.hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+  if (typeof user.save === 'function') {
+    await user.save();
+  } else if (typeof (this.usersService as any).saveRefreshHash === 'function') {
+    await (this.usersService as any).saveRefreshHash(user._id, user.hashedRefreshToken);
+  }
+
+  // 5) Return same shape as /auth/login
+  return {
+    user: {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      profileImage: user.profileImage,
+      // Optionally include isVerified so the app can branch without calling /auth/me
+      isVerified: user.isVerified,
+    },
+    tokens: { accessToken, refreshToken },
+  };
+}
 }

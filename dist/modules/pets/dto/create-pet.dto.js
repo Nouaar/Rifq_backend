@@ -11,6 +11,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreatePetDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const medical_history_dto_1 = require("./medical-history.dto");
 class CreatePetDto {
 }
 exports.CreatePetDto = CreatePetDto;
@@ -49,4 +51,25 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreatePetDto.prototype, "weight", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], CreatePetDto.prototype, "height", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePetDto.prototype, "photo", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreatePetDto.prototype, "microchipId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => medical_history_dto_1.CreateMedicalHistoryDto),
+    __metadata("design:type", medical_history_dto_1.CreateMedicalHistoryDto)
+], CreatePetDto.prototype, "medicalHistory", void 0);
 //# sourceMappingURL=create-pet.dto.js.map

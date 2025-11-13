@@ -17,4 +17,12 @@ export declare class UsersService {
     }> & {
         __v: number;
     }>;
+    updateProfile(userId: string, update: Partial<{
+        name?: string;
+        phoneNumber?: string;
+        country?: string;
+        city?: string;
+        hasPhoto?: boolean;
+        hasPets?: boolean;
+    }>): Promise<UserDocument>;
 }

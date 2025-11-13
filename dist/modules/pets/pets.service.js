@@ -18,52 +18,93 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const pet_schema_1 = require("./schemas/pet.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
+const medical_history_schema_1 = require("./schemas/medical-history.schema");
 let PetsService = class PetsService {
-    constructor(petModel, userModel) {
+    constructor(petModel, userModel, medicalHistoryModel) {
         this.petModel = petModel;
         this.userModel = userModel;
+        this.medicalHistoryModel = medicalHistoryModel;
     }
     async create(ownerId, createPetDto) {
         const owner = await this.userModel.findById(ownerId);
         if (!owner)
             throw new common_1.NotFoundException('Owner not found');
+        const { medicalHistory, ...petData } = createPetDto;
         const pet = await this.petModel.create({
-            ...createPetDto,
+            ...petData,
             owner: new mongoose_2.Types.ObjectId(ownerId),
         });
         owner.pets.push(pet._id);
         await owner.save();
-        return pet;
+        const history = await this.medicalHistoryModel.create({
+            ...(medicalHistory ?? {}),
+            pet: pet._id,
+        });
+        pet.medicalHistory = history._id;
+        await pet.save();
+        return this.findOne(pet._id.toHexString());
     }
     async findAllByOwner(ownerId) {
         return this.petModel
-            .find({ owner: ownerId })
-            .populate('owner', 'name email');
+            .find({ owner: new mongoose_2.Types.ObjectId(ownerId) })
+            .populate('owner', 'name email')
+            .populate('medicalHistory');
     }
     async findOne(petId) {
         const pet = await this.petModel
             .findById(petId)
-            .populate('owner', 'name email');
+            .populate('owner', 'name email')
+            .populate('medicalHistory');
         if (!pet)
             throw new common_1.NotFoundException('Pet not found');
         return pet;
     }
     async update(petId, updatePetDto) {
-        const pet = await this.petModel
-            .findByIdAndUpdate(petId, updatePetDto, { new: true })
-            .exec();
+        const { medicalHistory, ...petUpdates } = updatePetDto;
+        const pet = await this.petModel.findById(petId);
         if (!pet)
             throw new common_1.NotFoundException('Pet not found');
-        return pet;
+        const petUpdateEntries = Object.entries(petUpdates).filter(([, value]) => value !== undefined);
+        if (petUpdateEntries.length > 0) {
+            petUpdateEntries.forEach(([key, value]) => {
+                pet[key] = value;
+            });
+            await pet.save();
+        }
+        if (medicalHistory) {
+            const medicalHistoryUpdate = {};
+            if (medicalHistory.vaccinations !== undefined) {
+                medicalHistoryUpdate.vaccinations = medicalHistory.vaccinations;
+            }
+            if (medicalHistory.chronicConditions !== undefined) {
+                medicalHistoryUpdate.chronicConditions = medicalHistory.chronicConditions;
+            }
+            if (medicalHistory.currentMedications !== undefined) {
+                medicalHistoryUpdate.currentMedications = medicalHistory.currentMedications;
+            }
+            if (Object.keys(medicalHistoryUpdate).length > 0) {
+                const updatedHistory = await this.medicalHistoryModel.findOneAndUpdate({ pet: pet._id }, { ...medicalHistoryUpdate, pet: pet._id }, {
+                    new: true,
+                    upsert: true,
+                    setDefaultsOnInsert: true,
+                });
+                if (!pet.medicalHistory) {
+                    pet.medicalHistory = updatedHistory._id;
+                    await pet.save();
+                }
+            }
+        }
+        return this.findOne(petId);
     }
     async delete(petId, ownerId) {
         const pet = await this.petModel.findOneAndDelete({
-            _id: petId,
-            owner: ownerId,
+            _id: new mongoose_2.Types.ObjectId(petId),
+            owner: new mongoose_2.Types.ObjectId(ownerId),
         });
         if (!pet)
             throw new common_1.NotFoundException('Pet not found or not yours');
-        await this.userModel.findByIdAndUpdate(ownerId, { $pull: { pets: petId } });
+        await this.userModel.findByIdAndUpdate(new mongoose_2.Types.ObjectId(ownerId), { $pull: { pets: new mongoose_2.Types.ObjectId(petId) } });
+        await this.medicalHistoryModel.findOneAndDelete({ pet: pet._id });
     }
 };
 exports.PetsService = PetsService;
@@ -71,7 +112,9 @@ exports.PetsService = PetsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(pet_schema_1.Pet.name)),
     __param(1, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
+    __param(2, (0, mongoose_1.InjectModel)(medical_history_schema_1.MedicalHistory.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model])
 ], PetsService);
 //# sourceMappingURL=pets.service.js.map

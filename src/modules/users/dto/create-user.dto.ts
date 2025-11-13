@@ -28,6 +28,7 @@ export class CreateUserDto {
   @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(6)
   @MaxLength(50)
@@ -67,8 +68,8 @@ export class CreateUserDto {
 
   // Vet-specific fields (optional)
   @IsOptional()
-  @IsString()
-  specialization?: string;
+  @IsString({ each: true })
+  specializations?: string[]; // Array of specialties
 
   @IsOptional()
   @IsString()
@@ -101,4 +102,31 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   profileImage?: string;
+
+  
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hasPhoto?: boolean = false;
+
+  @IsOptional()
+  @IsBoolean()
+  hasPets?: boolean = false;
+
+  // 🔹 Add fields for social login
+  @IsOptional()
+  @IsString()
+  provider?: 'local' | 'google' = 'local';
+
+  @IsOptional()
+  @IsString()
+  providerId?: string;
 }

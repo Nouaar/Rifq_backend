@@ -22,6 +22,7 @@ const jwt_refresh_guard_1 = require("../auth/guards/jwt-refresh.guard");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const user_schema_1 = require("../users/schemas/user.schema");
+const google_login_dto_1 = require("./dto/google-login.dto");
 let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -46,6 +47,9 @@ let AuthController = class AuthController {
     }
     async getProfile(user) {
         return this.authService.getProfile(String(user._id ?? user.id));
+    }
+    async google(dto) {
+        return this.authService.signInWithGoogle(dto.id_token);
     }
 };
 exports.AuthController = AuthController;
@@ -100,6 +104,13 @@ __decorate([
     __metadata("design:paramtypes", [user_schema_1.User]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.Post)('google'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [google_login_dto_1.GoogleLoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "google", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

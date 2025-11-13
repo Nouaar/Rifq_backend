@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/schemas/user.schema';
+import { GoogleLoginDto } from './dto/google-login.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -73,5 +74,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async getProfile(@CurrentUser() user: User) {
     return this.authService.getProfile(String(user._id ?? user.id));
+  }
+
+    @Post('google')
+  async google(@Body() dto: GoogleLoginDto) {
+    return this.authService.signInWithGoogle(dto.id_token);
   }
 }

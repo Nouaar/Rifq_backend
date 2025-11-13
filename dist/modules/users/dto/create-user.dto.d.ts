@@ -15,7 +15,7 @@ export declare class CreateUserDto {
     verificationCodeExpires?: Date;
     refreshToken?: string;
     hashedRefreshToken?: string;
-    specialization?: string;
+    specializations?: string[];
     clinicName?: string;
     clinicAddress?: string;
     Location?: string;
@@ -24,4 +24,10 @@ export declare class CreateUserDto {
     phoneNumber?: string;
     bio?: string;
     profileImage?: string;
+    country?: string;
+    city?: string;
+    hasPhoto?: boolean;
+    hasPets?: boolean;
+    provider?: 'local' | 'google';
+    providerId?: string;
 }

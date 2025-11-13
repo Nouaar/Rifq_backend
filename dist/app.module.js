@@ -13,6 +13,8 @@ const app_service_1 = require("./app.service");
 const users_module_1 = require("./modules/users/users.module");
 const auth_module_1 = require("./modules/auth/auth.module");
 const pets_module_1 = require("./modules/pets/pets.module");
+const veterinarians_module_1 = require("./modules/veterinarians/veterinarians.module");
+const pet_sitters_module_1 = require("./modules/pet-sitters/pet-sitters.module");
 const mongoose_1 = require("@nestjs/mongoose");
 const config_1 = require("@nestjs/config");
 const mail_module_1 = require("./modules/mail/mail.module");
@@ -27,6 +29,8 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             auth_module_1.AuthModule,
             pets_module_1.PetsModule,
+            veterinarians_module_1.VeterinariansModule,
+            pet_sitters_module_1.PetSittersModule,
             mail_module_1.MailModule,
         ],
         controllers: [app_controller_1.AppController],

@@ -9,6 +9,10 @@ export declare class Pet extends Document {
     gender?: string;
     color?: string;
     weight?: number;
+    height?: number;
+    photo?: string;
+    microchipId?: string;
+    medicalHistory?: Types.ObjectId;
     owner: Types.ObjectId;
 }
 export declare const PetSchema: import("mongoose").Schema<Pet, import("mongoose").Model<Pet, any, any, any, Document<unknown, any, Pet, any, {}> & Pet & Required<{

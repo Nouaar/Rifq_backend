@@ -30,6 +30,18 @@ export class Pet extends Document {
   @Prop()
   weight?: number;
 
+  @Prop()
+  height?: number;
+
+  @Prop()
+  photo?: string;
+
+  @Prop({ unique: true, sparse: true })
+  microchipId?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'MedicalHistory' })
+  medicalHistory?: Types.ObjectId;
+
   //  Relation: each pet belongs to one owner (User)
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   owner: Types.ObjectId;

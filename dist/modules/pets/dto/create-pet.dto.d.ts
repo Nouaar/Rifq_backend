@@ -1,3 +1,4 @@
+import { CreateMedicalHistoryDto } from './medical-history.dto';
 export declare class CreatePetDto {
     name: string;
     species: string;
@@ -6,4 +7,8 @@ export declare class CreatePetDto {
     gender?: string;
     color?: string;
     weight?: number;
+    height?: number;
+    photo?: string;
+    microchipId?: string;
+    medicalHistory?: CreateMedicalHistoryDto;
 }

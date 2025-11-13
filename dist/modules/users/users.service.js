@@ -66,6 +66,27 @@ let UsersService = class UsersService {
             throw new common_1.NotFoundException('User not found');
         return user;
     }
+    async updateProfile(userId, update) {
+        const payload = {};
+        if (update.name !== undefined)
+            payload.name = update.name;
+        if (update.phoneNumber !== undefined)
+            payload.phoneNumber = update.phoneNumber;
+        if (update.country !== undefined)
+            payload.country = update.country;
+        if (update.city !== undefined)
+            payload.city = update.city;
+        if (update.hasPhoto !== undefined)
+            payload.hasPhoto = update.hasPhoto;
+        if (update.hasPets !== undefined)
+            payload.hasPets = update.hasPets;
+        const user = await this.userModel
+            .findByIdAndUpdate(userId, payload, { new: true })
+            .exec();
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        return user;
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([

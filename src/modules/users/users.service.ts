@@ -70,4 +70,32 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
+
+  async updateProfile(
+    userId: string,
+    update: Partial<{
+      name?: string;
+      phoneNumber?: string;
+      country?: string;
+      city?: string;
+      hasPhoto?: boolean;
+      hasPets?: boolean;
+    }>
+  ): Promise<UserDocument> {
+    const payload: Record<string, unknown> = {};
+
+    if (update.name !== undefined) payload.name = update.name;
+    if (update.phoneNumber !== undefined) payload.phoneNumber = update.phoneNumber;
+    if (update.country !== undefined) payload.country = update.country;
+    if (update.city !== undefined) payload.city = update.city;
+    if (update.hasPhoto !== undefined) payload.hasPhoto = update.hasPhoto;
+    if (update.hasPets !== undefined) payload.hasPets = update.hasPets;
+
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, payload, { new: true })
+      .exec();
+
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
 }
