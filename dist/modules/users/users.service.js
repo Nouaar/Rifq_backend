@@ -69,39 +69,56 @@ let UsersService = class UsersService {
         return user;
     }
     async updateProfile(userId, update, file) {
-        const payload = {};
-        if (update.name !== undefined)
-            payload.name = update.name;
-        if (update.phoneNumber !== undefined)
-            payload.phoneNumber = update.phoneNumber;
-        if (update.country !== undefined)
-            payload.country = update.country;
-        if (update.city !== undefined)
-            payload.city = update.city;
-        if (update.hasPhoto !== undefined)
-            payload.hasPhoto = update.hasPhoto;
-        if (update.hasPets !== undefined)
-            payload.hasPets = update.hasPets;
-        if (file) {
-            const user = await this.findById(userId);
-            if (!user)
-                throw new common_1.NotFoundException('User not found');
-            if (user.profileImage) {
-                const publicId = this.extractPublicId(user.profileImage);
-                if (publicId) {
-                    await this.cloudinaryService.deleteImage(publicId);
+        try {
+            const payload = {};
+            if (update.name !== undefined)
+                payload.name = update.name;
+            if (update.phoneNumber !== undefined)
+                payload.phoneNumber = update.phoneNumber;
+            if (update.country !== undefined)
+                payload.country = update.country;
+            if (update.city !== undefined)
+                payload.city = update.city;
+            if (update.hasPhoto !== undefined)
+                payload.hasPhoto = update.hasPhoto;
+            if (update.hasPets !== undefined)
+                payload.hasPets = update.hasPets;
+            if (file) {
+                const user = await this.findById(userId);
+                if (!user)
+                    throw new common_1.NotFoundException('User not found');
+                if (user.profileImage) {
+                    const publicId = this.extractPublicId(user.profileImage);
+                    if (publicId) {
+                        try {
+                            await this.cloudinaryService.deleteImage(publicId);
+                        }
+                        catch (error) {
+                            console.error('Error deleting old profile image:', error);
+                        }
+                    }
+                }
+                try {
+                    const result = await this.cloudinaryService.uploadImage(file, 'users/profiles');
+                    payload.profileImage = result.secure_url;
+                    payload.hasPhoto = true;
+                }
+                catch (error) {
+                    console.error('Cloudinary upload error:', error);
+                    throw new Error(`Failed to upload profile image: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 }
             }
-            const result = await this.cloudinaryService.uploadImage(file, 'users/profiles');
-            payload.profileImage = result.secure_url;
-            payload.hasPhoto = true;
+            const user = await this.userModel
+                .findByIdAndUpdate(userId, payload, { new: true })
+                .exec();
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
+            return user;
         }
-        const user = await this.userModel
-            .findByIdAndUpdate(userId, payload, { new: true })
-            .exec();
-        if (!user)
-            throw new common_1.NotFoundException('User not found');
-        return user;
+        catch (error) {
+            console.error('Error updating profile:', error);
+            throw error;
+        }
     }
     extractPublicId(imageUrl) {
         const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);

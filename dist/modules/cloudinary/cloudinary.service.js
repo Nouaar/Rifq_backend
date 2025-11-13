@@ -12,6 +12,11 @@ const cloudinary_1 = require("cloudinary");
 const toStream = require("buffer-to-stream");
 let CloudinaryService = class CloudinaryService {
     async uploadImage(file, folder) {
+        if (!process.env.CLOUDINARY_CLOUD_NAME ||
+            !process.env.CLOUDINARY_API_KEY ||
+            !process.env.CLOUDINARY_API_SECRET) {
+            throw new Error('Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET');
+        }
         return new Promise((resolve, reject) => {
             const upload = cloudinary_1.v2.uploader.upload_stream({
                 folder: folder,
@@ -21,8 +26,10 @@ let CloudinaryService = class CloudinaryService {
                     { quality: 'auto' },
                 ],
             }, (error, result) => {
-                if (error)
+                if (error) {
+                    console.error('Cloudinary upload error:', error);
                     return reject(new Error(error.message));
+                }
                 resolve(result);
             });
             toStream(file.buffer).pipe(upload);

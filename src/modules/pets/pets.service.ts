@@ -27,36 +27,51 @@ export class PetsService {
     createPetDto: CreatePetDto,
     file?: any,
   ): Promise<Pet> {
-    const owner = await this.userModel.findById(ownerId);
-    if (!owner) throw new NotFoundException('Owner not found');
+    try {
+      const owner = await this.userModel.findById(ownerId);
+      if (!owner) throw new NotFoundException('Owner not found');
 
-    const { medicalHistory, ...petData } = createPetDto;
+      const { medicalHistory, ...petData } = createPetDto;
 
-    // Handle photo upload if file is provided
-    let photoUrl: string | undefined;
-    if (file) {
-      const result = await this.cloudinaryService.uploadImage(file, 'pets');
-      photoUrl = result.secure_url as string;
+      // Handle photo upload if file is provided
+      let photoUrl: string | undefined;
+      if (file) {
+        try {
+          const result = await this.cloudinaryService.uploadImage(
+            file,
+            'pets',
+          );
+          photoUrl = result.secure_url as string;
+        } catch (error) {
+          console.error('Cloudinary upload error:', error);
+          throw new Error(
+            `Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
+      }
+
+      const pet = await this.petModel.create({
+        ...petData,
+        photo: photoUrl,
+        owner: new Types.ObjectId(ownerId),
+      });
+
+      owner.pets.push(pet._id);
+      await owner.save();
+
+      const history = await this.medicalHistoryModel.create({
+        ...(medicalHistory ?? {}),
+        pet: pet._id,
+      });
+
+      pet.medicalHistory = history._id;
+      await pet.save();
+
+      return this.findOne(pet._id.toHexString());
+    } catch (error) {
+      console.error('Error creating pet:', error);
+      throw error;
     }
-
-    const pet = await this.petModel.create({
-      ...petData,
-      photo: photoUrl,
-      owner: new Types.ObjectId(ownerId),
-    });
-
-    owner.pets.push(pet._id);
-    await owner.save();
-
-    const history = await this.medicalHistoryModel.create({
-      ...(medicalHistory ?? {}),
-      pet: pet._id,
-    });
-
-    pet.medicalHistory = history._id;
-    await pet.save();
-
-    return this.findOne(pet._id.toHexString());
   }
 
   async findAllByOwner(ownerId: string): Promise<Pet[]> {
@@ -80,71 +95,91 @@ export class PetsService {
     updatePetDto: UpdatePetDto,
     file?: any,
   ): Promise<Pet> {
-    const { medicalHistory, ...petUpdates } = updatePetDto;
+    try {
+      const { medicalHistory, ...petUpdates } = updatePetDto;
 
-    const pet = await this.petModel.findById(petId);
-    if (!pet) throw new NotFoundException('Pet not found');
+      const pet = await this.petModel.findById(petId);
+      if (!pet) throw new NotFoundException('Pet not found');
 
-    // Handle photo upload if file is provided
-    if (file) {
-      // Delete old photo if exists
-      if (pet.photo) {
-        const publicId = this.extractPublicId(pet.photo);
-        if (publicId) {
-          await this.cloudinaryService.deleteImage(publicId);
+      // Handle photo upload if file is provided
+      if (file) {
+        // Delete old photo if exists
+        if (pet.photo) {
+          const publicId = this.extractPublicId(pet.photo);
+          if (publicId) {
+            try {
+              await this.cloudinaryService.deleteImage(publicId);
+            } catch (error) {
+              console.error('Error deleting old photo:', error);
+              // Continue with upload even if deletion fails
+            }
+          }
+        }
+
+        // Upload new photo
+        try {
+          const result = await this.cloudinaryService.uploadImage(file, 'pets');
+          pet.photo = result.secure_url as string;
+        } catch (error) {
+          console.error('Cloudinary upload error:', error);
+          throw new Error(
+            `Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
         }
       }
 
-      // Upload new photo
-      const result = await this.cloudinaryService.uploadImage(file, 'pets');
-      pet.photo = result.secure_url as string;
-    }
+      const petUpdateEntries = Object.entries(petUpdates).filter(
+        ([, value]) => value !== undefined,
+      );
 
-    const petUpdateEntries = Object.entries(petUpdates).filter(
-      ([, value]) => value !== undefined,
-    );
-
-    if (petUpdateEntries.length > 0) {
-      petUpdateEntries.forEach(([key, value]) => {
-        (pet as unknown as Record<string, unknown>)[key] = value;
-      });
-      await pet.save();
-    }
-
-    if (medicalHistory) {
-      const medicalHistoryUpdate: Record<string, unknown> = {};
-
-      if (medicalHistory.vaccinations !== undefined) {
-        medicalHistoryUpdate.vaccinations = medicalHistory.vaccinations;
+      if (petUpdateEntries.length > 0) {
+        petUpdateEntries.forEach(([key, value]) => {
+          (pet as unknown as Record<string, unknown>)[key] = value;
+        });
+        await pet.save();
       }
 
-      if (medicalHistory.chronicConditions !== undefined) {
-        medicalHistoryUpdate.chronicConditions = medicalHistory.chronicConditions;
-      }
+      if (medicalHistory) {
+        const medicalHistoryUpdate: Record<string, unknown> = {};
 
-      if (medicalHistory.currentMedications !== undefined) {
-        medicalHistoryUpdate.currentMedications = medicalHistory.currentMedications;
-      }
+        if (medicalHistory.vaccinations !== undefined) {
+          medicalHistoryUpdate.vaccinations = medicalHistory.vaccinations;
+        }
 
-      if (Object.keys(medicalHistoryUpdate).length > 0) {
-        const updatedHistory = await this.medicalHistoryModel.findOneAndUpdate(
-          { pet: pet._id },
-          { ...medicalHistoryUpdate, pet: pet._id },
-          {
-            new: true,
-            upsert: true,
-            setDefaultsOnInsert: true,
-          },
-        );
+        if (medicalHistory.chronicConditions !== undefined) {
+          medicalHistoryUpdate.chronicConditions =
+            medicalHistory.chronicConditions;
+        }
 
-        if (!pet.medicalHistory) {
-          pet.medicalHistory = updatedHistory._id;
-          await pet.save();
+        if (medicalHistory.currentMedications !== undefined) {
+          medicalHistoryUpdate.currentMedications =
+            medicalHistory.currentMedications;
+        }
+
+        if (Object.keys(medicalHistoryUpdate).length > 0) {
+          const updatedHistory =
+            await this.medicalHistoryModel.findOneAndUpdate(
+              { pet: pet._id },
+              { ...medicalHistoryUpdate, pet: pet._id },
+              {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+              },
+            );
+
+          if (!pet.medicalHistory) {
+            pet.medicalHistory = updatedHistory._id;
+            await pet.save();
+          }
         }
       }
-    }
 
-    return this.findOne(petId);
+      return this.findOne(petId);
+    } catch (error) {
+      console.error('Error updating pet:', error);
+      throw error;
+    }
   }
 
   async delete(petId: string, ownerId: string): Promise<void> {

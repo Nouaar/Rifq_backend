@@ -9,6 +9,17 @@ export class CloudinaryService {
     file: any,
     folder: string,
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
+    // Check Cloudinary configuration
+    if (
+      !process.env.CLOUDINARY_CLOUD_NAME ||
+      !process.env.CLOUDINARY_API_KEY ||
+      !process.env.CLOUDINARY_API_SECRET
+    ) {
+      throw new Error(
+        'Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET',
+      );
+    }
+
     return new Promise((resolve, reject) => {
       const upload = v2.uploader.upload_stream(
         {
@@ -20,7 +31,10 @@ export class CloudinaryService {
           ],
         },
         (error, result) => {
-          if (error) return reject(new Error(error.message));
+          if (error) {
+            console.error('Cloudinary upload error:', error);
+            return reject(new Error(error.message));
+          }
           resolve(result);
         },
       );
