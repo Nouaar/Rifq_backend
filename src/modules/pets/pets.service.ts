@@ -37,10 +37,7 @@ export class PetsService {
       let photoUrl: string | undefined;
       if (file) {
         try {
-          const result = await this.cloudinaryService.uploadImage(
-            file,
-            'pets',
-          );
+          const result = await this.cloudinaryService.uploadImage(file, 'pets');
           photoUrl = result.secure_url as string;
         } catch (error) {
           console.error('Cloudinary upload error:', error);

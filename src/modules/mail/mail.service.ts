@@ -10,7 +10,6 @@ export class MailService {
     if (!apiKey) {
       throw new Error('SENDGRID_API_KEY is not defined');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     sgMail.setApiKey(apiKey);
   }
 
@@ -33,7 +32,6 @@ export class MailService {
     };
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       await sgMail.send(msg);
       console.log(`Verification email sent to ${email}`);
     } catch (err) {

@@ -555,8 +555,8 @@ export class AuthService {
     // 1) Find existing user by provider or email
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
     let user = (this.usersService as any).findByProvider
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-      ? await (this.usersService as any).findByProvider('google', sub)
+      ? // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        await (this.usersService as any).findByProvider('google', sub)
       : null;
 
     if (!user) {
