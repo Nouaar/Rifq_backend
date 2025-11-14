@@ -12,6 +12,8 @@ import { MailService } from '../mail/mail.service';
 import { UserDocument } from '../users/schemas/user.schema';
 import { CreateUserDto, UserRole } from '../users/dto/create-user.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangeEmailDto } from './dto/change-email.dto';
+import { VerifyNewEmailDto } from './dto/verify-new-email.dto';
 import * as bcrypt from 'bcryptjs';
 
 import { jwtVerify, createRemoteJWKSet } from 'jose';
@@ -278,6 +280,120 @@ export class AuthService {
     } as Partial<UserDocument>;
 
     return safe;
+  }
+
+  async changeEmail(
+    userId: string,
+    changeEmailDto: ChangeEmailDto,
+  ): Promise<{ message: string }> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify password (required for security)
+    if (!user.password) {
+      throw new BadRequestException(
+        'Cannot change email for accounts signed in with Google',
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      changeEmailDto.password,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Password is incorrect');
+    }
+
+    // Check if new email is already in use
+    const normalizedNewEmail = changeEmailDto.newEmail.toLowerCase();
+    const existingUser =
+      await this.usersService.findByEmail(normalizedNewEmail);
+    if (existingUser) {
+      throw new BadRequestException('Email is already in use');
+    }
+
+    // Generate verification code for new email
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store pending email change
+    await this.usersService.update(String(user._id), {
+      pendingEmail: normalizedNewEmail,
+      emailChangeCode: verificationCode,
+      emailChangeCodeExpires: expires,
+    } as any);
+
+    // Send verification code to new email
+    try {
+      await this.mailService.sendVerificationCode(
+        normalizedNewEmail,
+        verificationCode,
+      );
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error('Failed to send email change verification:', err.message);
+      }
+      throw new BadRequestException(
+        'Failed to send verification code to new email',
+      );
+    }
+
+    return {
+      message: `Verification code sent to ${normalizedNewEmail}. Please verify to complete email change.`,
+    };
+  }
+
+  async verifyNewEmail(
+    userId: string,
+    verifyDto: VerifyNewEmailDto,
+  ): Promise<{ message: string }> {
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const normalizedEmail = verifyDto.newEmail.toLowerCase();
+
+    // Verify the code matches and hasn't expired
+    if (
+      !user.pendingEmail ||
+      user.pendingEmail !== normalizedEmail ||
+      !user.emailChangeCode ||
+      user.emailChangeCode !== verifyDto.code ||
+      !user.emailChangeCodeExpires ||
+      user.emailChangeCodeExpires < new Date()
+    ) {
+      throw new BadRequestException(
+        'Invalid or expired verification code',
+      );
+    }
+
+    // Check again if email is still available (race condition check)
+    const existingUser = await this.usersService.findByEmail(normalizedEmail);
+    if (existingUser && String(existingUser._id) !== String(user._id)) {
+      throw new BadRequestException('Email is already in use');
+    }
+
+    // Update email and clear pending fields
+    await this.usersService.update(String(user._id), {
+      email: normalizedEmail,
+      pendingEmail: undefined,
+      emailChangeCode: undefined,
+      emailChangeCodeExpires: undefined,
+    } as any);
+
+    // Invalidate all refresh tokens (logout all devices for security)
+    await this.usersService.updateRefreshToken(String(user._id), null);
+
+    return {
+      message:
+        'Email changed successfully. Please login again with your new email.',
+    };
   }
 
   async changePassword(

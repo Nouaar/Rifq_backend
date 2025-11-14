@@ -51,6 +51,15 @@ export class User extends Document {
   verificationCodeExpires?: Date;
 
   @Prop()
+  pendingEmail?: string;
+
+  @Prop()
+  emailChangeCode?: string;
+
+  @Prop()
+  emailChangeCodeExpires?: Date;
+
+  @Prop()
   refreshToken?: string;
 
   @Prop()

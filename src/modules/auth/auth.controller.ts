@@ -15,6 +15,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangeEmailDto } from './dto/change-email.dto';
+import { VerifyNewEmailDto } from './dto/verify-new-email.dto';
 import { JwtRefreshGuard } from '../auth/guards/jwt-refresh.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
@@ -83,6 +85,44 @@ export class AuthController {
   @Post('google')
   async google(@Body() dto: GoogleLoginDto) {
     return this.authService.signInWithGoogle(dto.id_token);
+  }
+
+  @Patch('change-email')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request email change',
+    description:
+      'Request to change email address. Sends verification code to new email. Requires password confirmation.',
+  })
+  async changeEmail(
+    @CurrentUser() user: User,
+    @Body() changeEmailDto: ChangeEmailDto,
+  ) {
+    return this.authService.changeEmail(
+      String(user._id ?? user.id),
+      changeEmailDto,
+    );
+  }
+
+  @Post('verify-new-email')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Verify new email',
+    description:
+      'Verify new email address with code. This will invalidate all refresh tokens and require login with new email.',
+  })
+  async verifyNewEmail(
+    @CurrentUser() user: User,
+    @Body() verifyDto: VerifyNewEmailDto,
+  ) {
+    return this.authService.verifyNewEmail(
+      String(user._id ?? user.id),
+      verifyDto,
+    );
   }
 
   @Patch('change-password')
