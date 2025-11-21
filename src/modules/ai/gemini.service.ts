@@ -180,9 +180,12 @@ export class GeminiService {
 
       if (response.status === 200 && response.data.models) {
         const models = response.data.models as Array<{ name: string }>;
+        // Prioritize Flash models (more generous free tier quotas)
         const preferredNames = [
-          'gemini-1.5-pro',
-          'gemini-1.5-flash',
+          'gemini-2.5-flash',  // Newest flash model with best quotas
+          'gemini-1.5-flash',  // Fast and generous free tier
+          'gemini-2.0-flash',  // Alternative flash model
+          'gemini-1.5-pro',    // Fallback to pro if flash not available
           'gemini-pro',
           'gemini-1.0-pro',
         ];
@@ -214,9 +217,10 @@ export class GeminiService {
       this.logger.warn('Failed to list models, using fallback', error);
     }
 
-    // Fallback
-    this.cachedModelName = 'gemini-pro';
-    return 'gemini-pro';
+    // Fallback to flash model (better free tier quotas)
+    this.cachedModelName = 'gemini-1.5-flash';
+    this.logger.log('Using fallback model: gemini-1.5-flash');
+    return 'gemini-1.5-flash';
   }
 
   /**
@@ -370,6 +374,27 @@ export class GeminiService {
           const errorData = error.response?.data;
 
           if (status === 429) {
+            // Check if it's daily quota exhaustion vs rate limiting
+            const errorMessage = errorData?.error?.message || '';
+            const errorCode = errorData?.error?.code;
+            const isDailyQuota = 
+              errorMessage.includes('RESOURCE_EXHAUSTED') ||
+              errorMessage.includes('quota') ||
+              errorMessage.includes('daily limit') ||
+              errorMessage.includes('exceeded') ||
+              errorCode === 429; // 429 can mean either, but if message suggests quota, treat as daily
+            
+            if (isDailyQuota && errorMessage.toLowerCase().includes('quota')) {
+              // Daily quota exhausted - don't retry, fail immediately
+              this.logger.error(
+                `❌ Daily quota exhausted (429). Error: ${errorMessage}. Do not retry.`,
+              );
+              throw new Error(
+                `AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`,
+              );
+            }
+            
+            // Otherwise, it's a rate limit (per-minute) - handle with retry
             // Parse retry delay from API response
             let retryAfter = 60000; // Default 60 seconds
             

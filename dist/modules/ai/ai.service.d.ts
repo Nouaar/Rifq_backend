@@ -29,6 +29,8 @@ export declare class AiService {
     private getCached;
     private setCached;
     generateTips(petId: string): Promise<AiTipsResponseDto>;
+    private fetchAndCacheTips;
+    private refreshCacheInBackground;
     generateRecommendations(petId: string): Promise<AiRecommendationsResponseDto>;
     generateReminders(petId: string): Promise<AiRemindersResponseDto>;
     generateStatus(petId: string): Promise<AiStatusResponseDto>;

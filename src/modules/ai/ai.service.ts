@@ -34,8 +34,8 @@ interface CachedResponse<T> {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   
-  // Cache for AI responses (5 minutes TTL)
-  private readonly cacheTTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+  // Cache for AI responses (24 hours TTL to reduce API calls and stay within daily quota)
+  private readonly cacheTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   private tipsCache = new Map<string, CachedResponse<AiTipsResponseDto>>();
   private recommendationsCache = new Map<string, CachedResponse<AiRecommendationsResponseDto>>();
   private remindersCache = new Map<string, CachedResponse<AiRemindersResponseDto>>();
@@ -505,6 +505,20 @@ Pet Information:
       return cached;
     }
 
+    // Check for stale cache (even if expired) - return immediately if rate limited
+    const staleCache = this.tipsCache.get(petId);
+    if (staleCache) {
+      // Return stale cache immediately and refresh in background
+      this.logger.log(`📦 Returning stale cached tips for ${petId} (will refresh in background)`);
+      this.refreshCacheInBackground(petId, () => this.fetchAndCacheTips(petId));
+      return staleCache.data;
+    }
+
+    // No cache at all, fetch fresh data
+    return this.fetchAndCacheTips(petId);
+  }
+
+  private async fetchAndCacheTips(petId: string): Promise<AiTipsResponseDto> {
     const { pet, medicalHistory } = await this.getPetWithHistory(petId);
     const prompt = this.buildTipsPrompt(pet, medicalHistory);
 
@@ -536,8 +550,37 @@ Pet Information:
         throw new Error('AI service is not configured. Please contact support.');
       }
       
+      // Check if it's a daily quota error - don't retry, return error
+      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+        this.logger.error(`❌ Daily quota exceeded for ${petId}`);
+        // Return stale cache if available, otherwise throw
+        const stale = this.tipsCache.get(petId);
+        if (stale) {
+          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          return stale.data;
+        }
+        // Re-throw with clear message
+        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+      }
+      
+      // Check if it's a rate limit error (per-minute) - can retry later
+      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+        this.logger.warn(`⚠️ Rate limit hit for ${petId}, returning stale cache if available`);
+        const stale = this.tipsCache.get(petId);
+        if (stale) {
+          return stale.data;
+        }
+      }
+      
       throw error;
     }
+  }
+
+  private refreshCacheInBackground(petId: string, fetchFn: () => Promise<any>): void {
+    // Don't await - run in background
+    fetchFn().catch((error) => {
+      this.logger.warn(`Background refresh failed for ${petId}:`, error);
+    });
   }
 
   /**
@@ -584,6 +627,24 @@ Pet Information:
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
         throw new Error('AI service is not configured. Please contact support.');
+      }
+      
+      // Check if it's a daily quota error
+      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+        const stale = this.recommendationsCache.get(petId);
+        if (stale) {
+          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          return stale.data;
+        }
+        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+      }
+      
+      // Check if it's a rate limit error
+      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+        const stale = this.recommendationsCache.get(petId);
+        if (stale) {
+          return stale.data;
+        }
       }
       
       throw error;
@@ -634,6 +695,24 @@ Pet Information:
         throw new Error('AI service is not configured. Please contact support.');
       }
       
+      // Check if it's a daily quota error
+      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+        const stale = this.remindersCache.get(petId);
+        if (stale) {
+          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          return stale.data;
+        }
+        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+      }
+      
+      // Check if it's a rate limit error
+      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+        const stale = this.remindersCache.get(petId);
+        if (stale) {
+          return stale.data;
+        }
+      }
+      
       throw error;
     }
   }
@@ -676,6 +755,24 @@ Pet Information:
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
         throw new Error('AI service is not configured. Please contact support.');
+      }
+      
+      // Check if it's a daily quota error
+      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+        const stale = this.statusCache.get(petId);
+        if (stale) {
+          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          return stale.data;
+        }
+        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+      }
+      
+      // Check if it's a rate limit error
+      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+        const stale = this.statusCache.get(petId);
+        if (stale) {
+          return stale.data;
+        }
       }
       
       throw error;

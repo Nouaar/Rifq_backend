@@ -93,8 +93,10 @@ let GeminiService = GeminiService_1 = class GeminiService {
             if (response.status === 200 && response.data.models) {
                 const models = response.data.models;
                 const preferredNames = [
-                    'gemini-1.5-pro',
+                    'gemini-2.5-flash',
                     'gemini-1.5-flash',
+                    'gemini-2.0-flash',
+                    'gemini-1.5-pro',
                     'gemini-pro',
                     'gemini-1.0-pro',
                 ];
@@ -119,8 +121,9 @@ let GeminiService = GeminiService_1 = class GeminiService {
         catch (error) {
             this.logger.warn('Failed to list models, using fallback', error);
         }
-        this.cachedModelName = 'gemini-pro';
-        return 'gemini-pro';
+        this.cachedModelName = 'gemini-1.5-flash';
+        this.logger.log('Using fallback model: gemini-1.5-flash');
+        return 'gemini-1.5-flash';
     }
     async makeApiRequest(prompt, options = {}) {
         let { temperature = 0.7, maxTokens = 1000, maxRetries = 3, } = options;
@@ -214,6 +217,17 @@ let GeminiService = GeminiService_1 = class GeminiService {
                     const status = error.response?.status;
                     const errorData = error.response?.data;
                     if (status === 429) {
+                        const errorMessage = errorData?.error?.message || '';
+                        const errorCode = errorData?.error?.code;
+                        const isDailyQuota = errorMessage.includes('RESOURCE_EXHAUSTED') ||
+                            errorMessage.includes('quota') ||
+                            errorMessage.includes('daily limit') ||
+                            errorMessage.includes('exceeded') ||
+                            errorCode === 429;
+                        if (isDailyQuota && errorMessage.toLowerCase().includes('quota')) {
+                            this.logger.error(`❌ Daily quota exhausted (429). Error: ${errorMessage}. Do not retry.`);
+                            throw new Error(`AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`);
+                        }
                         let retryAfter = 60000;
                         if (errorData?.error?.details) {
                             for (const detail of errorData.error.details) {
