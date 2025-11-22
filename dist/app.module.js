@@ -22,6 +22,7 @@ const messages_module_1 = require("./modules/messages/messages.module");
 const bookings_module_1 = require("./modules/bookings/bookings.module");
 const notifications_module_1 = require("./modules/notifications/notifications.module");
 const ai_module_1 = require("./modules/ai/ai.module");
+const fcm_module_1 = require("./modules/fcm/fcm.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -40,6 +41,7 @@ exports.AppModule = AppModule = __decorate([
             notifications_module_1.NotificationsModule,
             bookings_module_1.BookingsModule,
             ai_module_1.AiModule,
+            fcm_module_1.FcmModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

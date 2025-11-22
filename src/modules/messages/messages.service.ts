@@ -17,6 +17,7 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { FcmService } from '../fcm/fcm.service';
 
 @Injectable()
 export class MessagesService {
@@ -28,6 +29,7 @@ export class MessagesService {
     @InjectModel('User')
     private readonly userModel: Model<UserDocument>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly fcmService: FcmService,
   ) {}
 
   /**
@@ -253,6 +255,32 @@ export class MessagesService {
       { path: 'sender', select: 'name email profileImage' },
       { path: 'recipient', select: 'name email profileImage' },
     ]);
+
+    // Send FCM notification to recipient if they have an FCM token
+    try {
+      const recipient = await this.userModel.findById(recipientId).select('fcmToken name').exec();
+      if (recipient?.fcmToken) {
+        const sender = await this.userModel.findById(userId).select('name').exec();
+        const senderName = sender?.name || 'Someone';
+        
+        // Send notification asynchronously (don't wait for it)
+        this.fcmService
+          .sendMessageNotification(
+            recipient.fcmToken,
+            senderName,
+            content,
+            String(conversation._id),
+            String(message._id),
+          )
+          .catch((error) => {
+            console.error('Failed to send FCM notification:', error);
+            // Don't throw - message was saved successfully, notification failure is not critical
+          });
+      }
+    } catch (error) {
+      // Log error but don't fail the message send
+      console.error('Error sending FCM notification:', error);
+    }
 
     return message;
   }

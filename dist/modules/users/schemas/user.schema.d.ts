@@ -40,6 +40,7 @@ export declare class User extends Document {
     hasPets?: boolean;
     provider: 'local' | 'google';
     providerId?: string;
+    fcmToken?: string;
 }
 export declare const UserSchema: import("mongoose").Schema<User, import("mongoose").Model<User, any, any, any, Document<unknown, any, User, any, {}> & User & Required<{
     _id: Types.ObjectId;

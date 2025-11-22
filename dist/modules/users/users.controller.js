@@ -61,6 +61,11 @@ let UsersController = class UsersController {
         if (!deleted)
             throw new common_1.NotFoundException(`User with ID ${id} not found`);
     }
+    async updateFcmToken(user, body) {
+        const userId = String(user._id ?? user.id);
+        await this.usersService.updateFcmToken(userId, body.fcmToken || null);
+        return { message: 'FCM token updated successfully' };
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -151,6 +156,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)('fcm-token'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update FCM token',
+        description: 'Updates the Firebase Cloud Messaging token for push notifications',
+    }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [user_schema_1.User, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateFcmToken", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('users'),
     (0, common_1.Controller)('users'),

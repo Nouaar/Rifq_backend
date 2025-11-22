@@ -19,12 +19,14 @@ const mongoose_2 = require("mongoose");
 const conversation_schema_1 = require("./schemas/conversation.schema");
 const message_schema_1 = require("./schemas/message.schema");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
+const fcm_service_1 = require("../fcm/fcm.service");
 let MessagesService = class MessagesService {
-    constructor(conversationModel, messageModel, userModel, cloudinaryService) {
+    constructor(conversationModel, messageModel, userModel, cloudinaryService, fcmService) {
         this.conversationModel = conversationModel;
         this.messageModel = messageModel;
         this.userModel = userModel;
         this.cloudinaryService = cloudinaryService;
+        this.fcmService = fcmService;
     }
     async getOrCreateConversation(userId, participantId) {
         if (userId === participantId) {
@@ -164,6 +166,21 @@ let MessagesService = class MessagesService {
             { path: 'sender', select: 'name email profileImage' },
             { path: 'recipient', select: 'name email profileImage' },
         ]);
+        try {
+            const recipient = await this.userModel.findById(recipientId).select('fcmToken name').exec();
+            if (recipient?.fcmToken) {
+                const sender = await this.userModel.findById(userId).select('name').exec();
+                const senderName = sender?.name || 'Someone';
+                this.fcmService
+                    .sendMessageNotification(recipient.fcmToken, senderName, content, String(conversation._id), String(message._id))
+                    .catch((error) => {
+                    console.error('Failed to send FCM notification:', error);
+                });
+            }
+        }
+        catch (error) {
+            console.error('Error sending FCM notification:', error);
+        }
         return message;
     }
     async markAsRead(conversationId, userId) {
@@ -262,6 +279,7 @@ exports.MessagesService = MessagesService = __decorate([
     __metadata("design:paramtypes", [mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
-        cloudinary_service_1.CloudinaryService])
+        cloudinary_service_1.CloudinaryService,
+        fcm_service_1.FcmService])
 ], MessagesService);
 //# sourceMappingURL=messages.service.js.map

@@ -4,12 +4,14 @@ import { MessageDocument } from './schemas/message.schema';
 import { UserDocument } from '../users/schemas/user.schema';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { FcmService } from '../fcm/fcm.service';
 export declare class MessagesService {
     private readonly conversationModel;
     private readonly messageModel;
     private readonly userModel;
     private readonly cloudinaryService;
-    constructor(conversationModel: Model<ConversationDocument>, messageModel: Model<MessageDocument>, userModel: Model<UserDocument>, cloudinaryService: CloudinaryService);
+    private readonly fcmService;
+    constructor(conversationModel: Model<ConversationDocument>, messageModel: Model<MessageDocument>, userModel: Model<UserDocument>, cloudinaryService: CloudinaryService, fcmService: FcmService);
     getOrCreateConversation(userId: string, participantId: string): Promise<ConversationDocument>;
     getConversations(userId: string): Promise<ConversationDocument[]>;
     getMessages(conversationId: string, userId: string): Promise<MessageDocument[]>;

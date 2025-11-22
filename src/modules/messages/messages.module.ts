@@ -11,6 +11,7 @@ import {
 } from './schemas/conversation.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { FcmModule } from '../fcm/fcm.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service';
       { name: Conversation.name, schema: ConversationSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    FcmModule,
   ],
   controllers: [MessagesController],
   providers: [MessagesService, CloudinaryService],

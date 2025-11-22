@@ -28,4 +28,6 @@ export declare class UsersService {
         hasPets?: boolean;
     }>, file?: any): Promise<UserDocument>;
     private extractPublicId;
+    updateFcmToken(userId: string, fcmToken: string | null): Promise<UserDocument>;
+    getFcmToken(userId: string): Promise<string | null>;
 }

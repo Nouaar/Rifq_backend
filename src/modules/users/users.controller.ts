@@ -139,4 +139,21 @@ export class UsersController {
     const deleted = await this.usersService.remove(id);
     if (!deleted) throw new NotFoundException(`User with ID ${id} not found`);
   }
+
+  @Post('fcm-token')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update FCM token',
+    description: 'Updates the Firebase Cloud Messaging token for push notifications',
+  })
+  async updateFcmToken(
+    @CurrentUser() user: User,
+    @Body() body: { fcmToken: string | null },
+  ): Promise<{ message: string }> {
+    const userId = String(user._id ?? user.id);
+    await this.usersService.updateFcmToken(userId, body.fcmToken || null);
+    return { message: 'FCM token updated successfully' };
+  }
 }

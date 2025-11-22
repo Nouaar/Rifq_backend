@@ -124,6 +124,18 @@ let UsersService = class UsersService {
         const matches = imageUrl.match(/\/([^/]+)\.(jpg|jpeg|png|gif|webp)$/i);
         return matches ? matches[1] : null;
     }
+    async updateFcmToken(userId, fcmToken) {
+        const user = await this.userModel
+            .findByIdAndUpdate(userId, { fcmToken }, { new: true })
+            .exec();
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        return user;
+    }
+    async getFcmToken(userId) {
+        const user = await this.userModel.findById(userId).select('fcmToken').exec();
+        return user?.fcmToken || null;
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([

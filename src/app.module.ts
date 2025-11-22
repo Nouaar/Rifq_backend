@@ -14,6 +14,7 @@ import { MessagesModule } from './modules/messages/messages.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AiModule } from './modules/ai/ai.module';
+import { FcmModule } from './modules/fcm/fcm.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AiModule } from './modules/ai/ai.module';
     NotificationsModule, // Import before BookingsModule since BookingsModule depends on it
     BookingsModule,
     AiModule,
+    FcmModule,
   ],
   controllers: [AppController],
   providers: [AppService],

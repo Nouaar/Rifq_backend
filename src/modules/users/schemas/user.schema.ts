@@ -128,6 +128,9 @@ export class User extends Document {
 
   @Prop()
   providerId?: string; // Google "sub" field (user unique ID)
+
+  @Prop()
+  fcmToken?: string; // Firebase Cloud Messaging token for push notifications
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

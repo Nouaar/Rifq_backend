@@ -12,4 +12,9 @@ export declare class UsersController {
     update(id: string, updateUserDto: UpdateUserDto): Promise<User>;
     updateProfile(user: User, payload: UpdateProfileDto, file?: Express.Multer.File): Promise<User>;
     remove(id: string): Promise<void>;
+    updateFcmToken(user: User, body: {
+        fcmToken: string | null;
+    }): Promise<{
+        message: string;
+    }>;
 }
