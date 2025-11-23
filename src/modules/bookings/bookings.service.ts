@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -14,12 +18,17 @@ export class BookingsService {
     private readonly notificationsService: NotificationsService,
   ) {}
 
-  async create(userId: string, createBookingDto: CreateBookingDto): Promise<BookingDocument> {
+  async create(
+    userId: string,
+    createBookingDto: CreateBookingDto,
+  ): Promise<BookingDocument> {
     const booking = new this.bookingModel({
       owner: new Types.ObjectId(userId),
       provider: new Types.ObjectId(createBookingDto.providerId),
       providerType: createBookingDto.providerType,
-      pet: createBookingDto.petId ? new Types.ObjectId(createBookingDto.petId) : undefined,
+      pet: createBookingDto.petId
+        ? new Types.ObjectId(createBookingDto.petId)
+        : undefined,
       serviceType: createBookingDto.serviceType,
       description: createBookingDto.description,
       dateTime: new Date(createBookingDto.dateTime),
@@ -53,9 +62,12 @@ export class BookingsService {
     return savedBooking;
   }
 
-  async findAll(userId: string, role?: 'owner' | 'provider'): Promise<BookingDocument[]> {
+  async findAll(
+    userId: string,
+    role?: 'owner' | 'provider',
+  ): Promise<BookingDocument[]> {
     const query: any = {};
-    
+
     if (role === 'owner') {
       query.owner = new Types.ObjectId(userId);
     } else if (role === 'provider') {
@@ -119,13 +131,18 @@ export class BookingsService {
     // Verify user is the provider (only provider can accept/reject)
     const providerId = String(booking.provider);
     if (providerId !== userId) {
-      throw new ForbiddenException('Only the service provider can update booking status');
+      throw new ForbiddenException(
+        'Only the service provider can update booking status',
+      );
     }
 
     // Update booking
     const updateData: any = { ...updateBookingDto };
-    
-    if (updateBookingDto.status === 'rejected' && updateBookingDto.rejectionReason) {
+
+    if (
+      updateBookingDto.status === 'rejected' &&
+      updateBookingDto.rejectionReason
+    ) {
       updateData.rejectionReason = updateBookingDto.rejectionReason;
     }
 
@@ -170,7 +187,7 @@ export class BookingsService {
       ])
       .exec();
 
-    return updatedBooking!;
+    return updatedBooking;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -183,12 +200,13 @@ export class BookingsService {
     // Only owner or provider can cancel/delete
     const ownerId = String(booking.owner);
     const providerId = String(booking.provider);
-    
+
     if (ownerId !== userId && providerId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this booking');
+      throw new ForbiddenException(
+        'You do not have permission to delete this booking',
+      );
     }
 
     await this.bookingModel.findByIdAndDelete(id).exec();
   }
 }
-

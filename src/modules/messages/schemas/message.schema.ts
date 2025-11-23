@@ -57,4 +57,3 @@ MessageSchema.index({ conversation: 1, createdAt: -1 });
 MessageSchema.index({ sender: 1 });
 MessageSchema.index({ recipient: 1 });
 MessageSchema.index({ read: 1 });
-

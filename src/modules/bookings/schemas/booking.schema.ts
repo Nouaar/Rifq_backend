@@ -53,4 +53,3 @@ export class Booking {
 }
 
 export const BookingSchema = SchemaFactory.createForClass(Booking);
-

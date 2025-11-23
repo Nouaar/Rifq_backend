@@ -28,7 +28,9 @@ let BookingsService = class BookingsService {
             owner: new mongoose_2.Types.ObjectId(userId),
             provider: new mongoose_2.Types.ObjectId(createBookingDto.providerId),
             providerType: createBookingDto.providerType,
-            pet: createBookingDto.petId ? new mongoose_2.Types.ObjectId(createBookingDto.petId) : undefined,
+            pet: createBookingDto.petId
+                ? new mongoose_2.Types.ObjectId(createBookingDto.petId)
+                : undefined,
             serviceType: createBookingDto.serviceType,
             description: createBookingDto.description,
             dateTime: new Date(createBookingDto.dateTime),
@@ -111,7 +113,8 @@ let BookingsService = class BookingsService {
             throw new common_1.ForbiddenException('Only the service provider can update booking status');
         }
         const updateData = { ...updateBookingDto };
-        if (updateBookingDto.status === 'rejected' && updateBookingDto.rejectionReason) {
+        if (updateBookingDto.status === 'rejected' &&
+            updateBookingDto.rejectionReason) {
             updateData.rejectionReason = updateBookingDto.rejectionReason;
         }
         if (updateBookingDto.status === 'accepted') {

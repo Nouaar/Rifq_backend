@@ -133,7 +133,10 @@ let UsersService = class UsersService {
         return user;
     }
     async getFcmToken(userId) {
-        const user = await this.userModel.findById(userId).select('fcmToken').exec();
+        const user = await this.userModel
+            .findById(userId)
+            .select('fcmToken')
+            .exec();
         return user?.fcmToken || null;
     }
 };

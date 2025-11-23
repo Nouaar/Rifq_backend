@@ -63,4 +63,3 @@ export class CreateVetDto {
   @IsString()
   bio?: string;
 }
-

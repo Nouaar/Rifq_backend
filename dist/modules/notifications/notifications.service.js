@@ -50,7 +50,10 @@ let NotificationsService = class NotificationsService {
             .find(query)
             .populate([
             { path: 'sender', select: 'name email profileImage' },
-            { path: 'booking', populate: { path: 'owner provider', select: 'name email' } },
+            {
+                path: 'booking',
+                populate: { path: 'owner provider', select: 'name email' },
+            },
         ])
             .sort({ createdAt: -1 })
             .exec();

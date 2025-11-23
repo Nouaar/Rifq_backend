@@ -13,7 +13,11 @@ import {
 } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import { SubscriptionResponseDto, CreateSubscriptionResponseDto, CancelSubscriptionResponseDto } from './dto/subscription-response.dto';
+import {
+  SubscriptionResponseDto,
+  CreateSubscriptionResponseDto,
+  CancelSubscriptionResponseDto,
+} from './dto/subscription-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -29,7 +33,8 @@ export class SubscriptionsController {
     private readonly subscriptionsService: SubscriptionsService,
     private readonly configService: ConfigService,
   ) {
-    this.stripeWebhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
+    this.stripeWebhookSecret =
+      this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
   }
 
   @Post()
@@ -39,7 +44,10 @@ export class SubscriptionsController {
     @CurrentUser() user: UserDocument,
     @Body() createSubscriptionDto: CreateSubscriptionDto,
   ): Promise<CreateSubscriptionResponseDto> {
-    return this.subscriptionsService.create(user._id.toString(), createSubscriptionDto);
+    return this.subscriptionsService.create(
+      user._id.toString(),
+      createSubscriptionDto,
+    );
   }
 
   @Get('me')
@@ -47,7 +55,9 @@ export class SubscriptionsController {
   async getMySubscription(
     @CurrentUser() user: UserDocument,
   ): Promise<SubscriptionResponseDto> {
-    const subscription = await this.subscriptionsService.findByUserId(user._id.toString());
+    const subscription = await this.subscriptionsService.findByUserId(
+      user._id.toString(),
+    );
     if (!subscription) {
       // Return a default "none" subscription response
       return {
@@ -107,7 +117,9 @@ export class SubscriptionsController {
     }
 
     if (!this.stripeWebhookSecret) {
-      console.warn('STRIPE_WEBHOOK_SECRET not configured. Webhook verification skipped.');
+      console.warn(
+        'STRIPE_WEBHOOK_SECRET not configured. Webhook verification skipped.',
+      );
       // In test mode, we might not have webhook secret
       return { received: true };
     }
@@ -127,7 +139,7 @@ export class SubscriptionsController {
       }
 
       event = stripe.webhooks.constructEvent(
-        rawBody as Buffer,
+        rawBody,
         sig,
         this.stripeWebhookSecret,
       );
@@ -148,4 +160,3 @@ export class SubscriptionsController {
     return { received: true };
   }
 }
-

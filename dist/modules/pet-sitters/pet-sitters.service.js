@@ -76,7 +76,8 @@ let PetSittersService = class PetSittersService {
         };
         const createdUser = await new this.userModel(sitterData).save();
         let availabilityDates;
-        if (createSitterDto.availability && Array.isArray(createSitterDto.availability)) {
+        if (createSitterDto.availability &&
+            Array.isArray(createSitterDto.availability)) {
             availabilityDates = createSitterDto.availability.map((date) => {
                 if (typeof date === 'string') {
                     return new Date(date);
@@ -117,7 +118,10 @@ let PetSittersService = class PetSittersService {
         });
     }
     async findOne(id) {
-        const sitter = await this.petSitterModel.findOne({ user: id }).populate('user').exec();
+        const sitter = await this.petSitterModel
+            .findOne({ user: id })
+            .populate('user')
+            .exec();
         if (!sitter) {
             throw new common_1.NotFoundException(`Pet sitter with ID ${id} not found`);
         }
@@ -138,7 +142,10 @@ let PetSittersService = class PetSittersService {
         if (!user || user.role !== 'sitter') {
             return null;
         }
-        const sitter = await this.petSitterModel.findOne({ user: user._id }).populate('user').exec();
+        const sitter = await this.petSitterModel
+            .findOne({ user: user._id })
+            .populate('user')
+            .exec();
         if (!sitter) {
             return null;
         }
@@ -147,7 +154,8 @@ let PetSittersService = class PetSittersService {
     }
     async update(id, updateSitterDto) {
         const updateData = { ...updateSitterDto };
-        if (updateSitterDto.availability && Array.isArray(updateSitterDto.availability)) {
+        if (updateSitterDto.availability &&
+            Array.isArray(updateSitterDto.availability)) {
             updateData.availability = updateSitterDto.availability.map((date) => {
                 if (typeof date === 'string') {
                     return new Date(date);
@@ -181,7 +189,9 @@ let PetSittersService = class PetSittersService {
         if (!result) {
             throw new common_1.NotFoundException(`Pet sitter with ID ${id} not found`);
         }
-        await this.userModel.findByIdAndUpdate(id, { $set: { role: 'owner' } }).exec();
+        await this.userModel
+            .findByIdAndUpdate(id, { $set: { role: 'owner' } })
+            .exec();
     }
     async convertUserToSitter(userId, sitterData) {
         const user = await this.usersService.findOne(userId);
@@ -232,14 +242,16 @@ let PetSittersService = class PetSittersService {
             const user = await this.usersService.findOne(userId);
             const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
             const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-            await this.userModel.findByIdAndUpdate(userId, {
+            await this.userModel
+                .findByIdAndUpdate(userId, {
                 $set: {
                     role: 'sitter',
                     isVerified: false,
                     verificationCode,
                     verificationCodeExpires,
                 },
-            }).exec();
+            })
+                .exec();
             console.log(`[Sitter Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
             try {
                 await this.mailService.sendVerificationCode(user.email, verificationCode);

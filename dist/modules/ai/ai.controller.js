@@ -33,7 +33,8 @@ let AiController = class AiController {
             if (error instanceof Error && error.message.includes('not configured')) {
                 throw new common_1.HttpException('AI service is temporarily unavailable', common_1.HttpStatus.SERVICE_UNAVAILABLE);
             }
-            if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+            if (error instanceof Error &&
+                error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
                 throw new common_1.HttpException({
                     statusCode: common_1.HttpStatus.SERVICE_UNAVAILABLE,
                     message: 'AI daily quota exceeded. Please try again tomorrow or contact support.',
@@ -41,7 +42,8 @@ let AiController = class AiController {
                     retryAfter: 86400,
                 }, common_1.HttpStatus.SERVICE_UNAVAILABLE);
             }
-            if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+            if (error instanceof Error &&
+                (error.message.includes('Rate limit') || error.message.includes('429'))) {
                 throw new common_1.HttpException({
                     statusCode: common_1.HttpStatus.SERVICE_UNAVAILABLE,
                     message: 'AI service is rate limited. Please try again in a minute.',
@@ -60,7 +62,8 @@ let AiController = class AiController {
             if (error instanceof Error && error.message.includes('not configured')) {
                 throw new common_1.HttpException('AI service is temporarily unavailable', common_1.HttpStatus.SERVICE_UNAVAILABLE);
             }
-            if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+            if (error instanceof Error &&
+                (error.message.includes('Rate limit') || error.message.includes('429'))) {
                 throw new common_1.HttpException({
                     statusCode: common_1.HttpStatus.SERVICE_UNAVAILABLE,
                     message: 'AI service is rate limited. Please try again in a minute.',
@@ -78,7 +81,8 @@ let AiController = class AiController {
             if (error instanceof Error && error.message.includes('not configured')) {
                 throw new common_1.HttpException('AI service is temporarily unavailable', common_1.HttpStatus.SERVICE_UNAVAILABLE);
             }
-            if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+            if (error instanceof Error &&
+                (error.message.includes('Rate limit') || error.message.includes('429'))) {
                 throw new common_1.HttpException({
                     statusCode: common_1.HttpStatus.SERVICE_UNAVAILABLE,
                     message: 'AI service is rate limited. Please try again in a minute.',
@@ -96,7 +100,8 @@ let AiController = class AiController {
             if (error instanceof Error && error.message.includes('not configured')) {
                 throw new common_1.HttpException('AI service is temporarily unavailable', common_1.HttpStatus.SERVICE_UNAVAILABLE);
             }
-            if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+            if (error instanceof Error &&
+                (error.message.includes('Rate limit') || error.message.includes('429'))) {
                 throw new common_1.HttpException({
                     statusCode: common_1.HttpStatus.SERVICE_UNAVAILABLE,
                     message: 'AI service is rate limited. Please try again in a minute.',

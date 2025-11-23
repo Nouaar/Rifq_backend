@@ -1,13 +1,20 @@
 // src/modules/veterinarians/veterinarians.service.ts
 
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateVetDto } from './dto/create-vet.dto';
 import { UpdateVetDto } from './dto/update-vet.dto';
 import { UsersService } from '../users/users.service';
 import { User, UserDocument } from '../users/schemas/user.schema';
-import { Veterinarian, VeterinarianDocument } from './schemas/veterinarian.schema';
+import {
+  Veterinarian,
+  VeterinarianDocument,
+} from './schemas/veterinarian.schema';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
 
@@ -24,7 +31,9 @@ export class VeterinariansService {
 
   async create(createVetDto: CreateVetDto): Promise<UserDocument> {
     // Check if user with email already exists
-    const existingUser = await this.usersService.findByEmail(createVetDto.email);
+    const existingUser = await this.usersService.findByEmail(
+      createVetDto.email,
+    );
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -62,7 +71,10 @@ export class VeterinariansService {
   }
 
   async findAll(): Promise<UserDocument[]> {
-    const veterinarians = await this.veterinarianModel.find().populate('user').exec();
+    const veterinarians = await this.veterinarianModel
+      .find()
+      .populate('user')
+      .exec();
     return veterinarians.map((vet) => {
       const user = vet.user as unknown as UserDocument;
       if (!user || !('_id' in user)) {
@@ -80,7 +92,10 @@ export class VeterinariansService {
   }
 
   async findOne(id: string): Promise<UserDocument> {
-    const vet = await this.veterinarianModel.findOne({ user: id }).populate('user').exec();
+    const vet = await this.veterinarianModel
+      .findOne({ user: id })
+      .populate('user')
+      .exec();
     if (!vet) {
       throw new NotFoundException(`Veterinarian with ID ${id} not found`);
     }
@@ -103,7 +118,10 @@ export class VeterinariansService {
     if (!user || user.role !== 'vet') {
       return null;
     }
-    const vet = await this.veterinarianModel.findOne({ user: user._id }).populate('user').exec();
+    const vet = await this.veterinarianModel
+      .findOne({ user: user._id })
+      .populate('user')
+      .exec();
     if (!vet) {
       return null;
     }
@@ -111,16 +129,9 @@ export class VeterinariansService {
     return populatedUser && '_id' in populatedUser ? populatedUser : null;
   }
 
-  async update(
-    id: string,
-    updateVetDto: UpdateVetDto,
-  ): Promise<UserDocument> {
+  async update(id: string, updateVetDto: UpdateVetDto): Promise<UserDocument> {
     const vet = await this.veterinarianModel
-      .findOneAndUpdate(
-        { user: id },
-        { $set: updateVetDto },
-        { new: true },
-      )
+      .findOneAndUpdate({ user: id }, { $set: updateVetDto }, { new: true })
       .populate('user')
       .exec();
 
@@ -151,7 +162,9 @@ export class VeterinariansService {
     }
 
     // Also update user role back to 'owner'
-    await this.userModel.findByIdAndUpdate(id, { $set: { role: 'owner' } }).exec();
+    await this.userModel
+      .findByIdAndUpdate(id, { $set: { role: 'owner' } })
+      .exec();
   }
 
   // Convert existing user to vet (when they complete the join form)
@@ -165,7 +178,9 @@ export class VeterinariansService {
     }
 
     // Check if veterinarian record already exists
-    let veterinarian = await this.veterinarianModel.findOne({ user: userId }).exec();
+    let veterinarian = await this.veterinarianModel
+      .findOne({ user: userId })
+      .exec();
 
     if (veterinarian) {
       // Already a vet, just update the fields
@@ -202,10 +217,10 @@ export class VeterinariansService {
         longitude: vetData.longitude,
         bio: vetData.bio,
       };
-      
+
       // Ensure email is not included
       delete vetRecordData.email;
-      
+
       const vetRecord = new this.veterinarianModel(vetRecordData);
 
       veterinarian = await vetRecord.save();
@@ -213,7 +228,7 @@ export class VeterinariansService {
 
       // Update user role to 'vet' and always generate/send verification code
       const user = await this.usersService.findOne(userId);
-      
+
       // Always generate a new verification code and send email when converting to vet
       // This ensures the user verifies their email after role change
       const verificationCode = Math.floor(
@@ -221,33 +236,47 @@ export class VeterinariansService {
       ).toString();
       const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-      await this.userModel.findByIdAndUpdate(userId, {
-        $set: {
-          role: 'vet',
-          isVerified: false, // Require re-verification after role change
-          verificationCode,
-          verificationCodeExpires,
-        },
-      }).exec();
+      await this.userModel
+        .findByIdAndUpdate(userId, {
+          $set: {
+            role: 'vet',
+            isVerified: false, // Require re-verification after role change
+            verificationCode,
+            verificationCodeExpires,
+          },
+        })
+        .exec();
 
       // Send verification email (best effort - don't block conversion)
-      console.log(`[Vet Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
+      console.log(
+        `[Vet Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`,
+      );
       try {
-        await this.mailService.sendVerificationCode(user.email, verificationCode);
-        console.log(`[Vet Conversion] Verification email sent successfully to ${user.email}`);
+        await this.mailService.sendVerificationCode(
+          user.email,
+          verificationCode,
+        );
+        console.log(
+          `[Vet Conversion] Verification email sent successfully to ${user.email}`,
+        );
       } catch (err: unknown) {
         if (err instanceof Error) {
-          console.error('Failed to send verification email during vet conversion:', err.message);
+          console.error(
+            'Failed to send verification email during vet conversion:',
+            err.message,
+          );
           console.error('Error stack:', err.stack);
         } else {
-          console.error('Failed to send verification email during vet conversion (unknown error):', err);
+          console.error(
+            'Failed to send verification email during vet conversion (unknown error):',
+            err,
+          );
         }
       }
     }
 
     // Return the user with updated role
     const updatedUser = await this.usersService.findOne(userId);
-    return updatedUser!;
+    return updatedUser;
   }
 }
-

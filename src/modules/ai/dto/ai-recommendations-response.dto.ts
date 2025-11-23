@@ -2,7 +2,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RecommendationItemDto {
-  @ApiProperty({ example: 'Vaccination Schedule', description: 'Title of the recommendation' })
+  @ApiProperty({
+    example: 'Vaccination Schedule',
+    description: 'Title of the recommendation',
+  })
   title: string;
 
   @ApiProperty({
@@ -11,15 +14,24 @@ export class RecommendationItemDto {
   })
   detail: string;
 
-  @ApiProperty({ example: 'vaccination', description: 'Type of recommendation' })
+  @ApiProperty({
+    example: 'vaccination',
+    description: 'Type of recommendation',
+  })
   type: string;
 
-  @ApiProperty({ example: '2024-12-01', description: 'Suggested date (optional)', required: false })
+  @ApiProperty({
+    example: '2024-12-01',
+    description: 'Suggested date (optional)',
+    required: false,
+  })
   suggestedDate?: string;
 }
 
 export class AiRecommendationsResponseDto {
-  @ApiProperty({ type: [RecommendationItemDto], description: 'List of recommendations for the pet' })
+  @ApiProperty({
+    type: [RecommendationItemDto],
+    description: 'List of recommendations for the pet',
+  })
   recommendations: RecommendationItemDto[];
 }
-

@@ -59,4 +59,3 @@ export class NotificationsController {
     return this.notificationsService.remove(id, userId);
   }
 }
-

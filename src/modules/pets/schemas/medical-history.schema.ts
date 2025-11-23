@@ -35,7 +35,7 @@ export class MedicalHistory extends Document {
   currentMedications: Medication[];
 }
 
-export const MedicalHistorySchema = SchemaFactory.createForClass(MedicalHistory);
+export const MedicalHistorySchema =
+  SchemaFactory.createForClass(MedicalHistory);
 
 MedicalHistorySchema.index({ pet: 1 }, { unique: true });
-

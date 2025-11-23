@@ -71,4 +71,3 @@ export class VeterinariansController {
     return this.veterinariansService.convertUserToVet(userId, vetData);
   }
 }
-

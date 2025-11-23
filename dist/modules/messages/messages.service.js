@@ -167,9 +167,15 @@ let MessagesService = class MessagesService {
             { path: 'recipient', select: 'name email profileImage' },
         ]);
         try {
-            const recipient = await this.userModel.findById(recipientId).select('fcmToken name').exec();
+            const recipient = await this.userModel
+                .findById(recipientId)
+                .select('fcmToken name')
+                .exec();
             if (recipient?.fcmToken) {
-                const sender = await this.userModel.findById(userId).select('name').exec();
+                const sender = await this.userModel
+                    .findById(userId)
+                    .select('name')
+                    .exec();
                 const senderName = sender?.name || 'Someone';
                 this.fcmService
                     .sendMessageNotification(recipient.fcmToken, senderName, content, String(conversation._id), String(message._id))

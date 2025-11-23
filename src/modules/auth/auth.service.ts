@@ -169,13 +169,18 @@ export class AuthService {
 
     // Activate subscription if user has a pending subscription
     try {
-      const subscription = await this.subscriptionsService.findByUserId(String(user._id));
+      const subscription = await this.subscriptionsService.findByUserId(
+        String(user._id),
+      );
       if (subscription && subscription.status === 'pending') {
         await this.subscriptionsService.activate(String(user._id));
       }
     } catch (error) {
       // Log error but don't fail email verification if subscription activation fails
-      console.error('Failed to activate subscription after email verification:', error);
+      console.error(
+        'Failed to activate subscription after email verification:',
+        error,
+      );
     }
 
     return { message: 'Email verified successfully' };
@@ -284,7 +289,9 @@ export class AuthService {
     return { message: 'New verification code sent to your email' };
   }
 
-  async getProfile(userId: string): Promise<Partial<UserDocument> & { subscription?: any }> {
+  async getProfile(
+    userId: string,
+  ): Promise<Partial<UserDocument> & { subscription?: any }> {
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('User not found');
 
@@ -571,13 +578,14 @@ export class AuthService {
 
   /** Sign in with Google */
   async signInWithGoogle(idToken: string) {
-    const expectedAudienceRaw =
-      this.configService.get<string>('GOOGLE_IOS_CLIENT_ID');
+    const expectedAudienceRaw = this.configService.get<string>(
+      'GOOGLE_IOS_CLIENT_ID',
+    );
     // Normalize to avoid invisible Unicode chars / stray spaces from copy‑paste
     const expectedAudience = expectedAudienceRaw
       ? expectedAudienceRaw.replace(/[^\x20-\x7E]/g, '').trim()
       : undefined;
-    
+
     if (!expectedAudience) {
       console.error('GOOGLE_IOS_CLIENT_ID environment variable is not set');
       throw new UnauthorizedException(
@@ -594,7 +602,7 @@ export class AuthService {
         // Don't validate audience here - we'll check it manually
       });
       payload = verified.payload;
-      
+
       // Manually verify audience - check both 'aud' and 'azp' claims.
       // Google tokens can have audience in either field.
       const rawAud = payload.aud as string | string[] | undefined;
@@ -607,13 +615,13 @@ export class AuthService {
         Array.isArray(rawAud) && rawAud.length > 0
           ? rawAud.map((v) => normalize(v)).filter(Boolean)
           : rawAud
-          ? [normalize(rawAud as string)]
-          : [];
+            ? [normalize(rawAud as string)]
+            : [];
       const tokenAzp = normalize(rawAzp);
-      
+
       const audienceMatches =
         tokenAud.includes(expectedAudience) || tokenAzp === expectedAudience;
-      
+
       if (!audienceMatches) {
         console.error(
           `Audience mismatch. Expected: ${expectedAudience}, got aud: ${JSON.stringify(tokenAud)}, azp: ${tokenAzp}`,

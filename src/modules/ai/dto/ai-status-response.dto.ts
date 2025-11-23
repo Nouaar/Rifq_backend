@@ -16,10 +16,15 @@ export class AiStatusResponseDto {
   @ApiProperty({ example: 'Healthy', description: 'Overall health status' })
   status: string;
 
-  @ApiProperty({ type: [StatusPillDto], description: 'Status pills to display' })
+  @ApiProperty({
+    type: [StatusPillDto],
+    description: 'Status pills to display',
+  })
   pills: StatusPillDto[];
 
-  @ApiProperty({ example: '✓ Up-to-date | 2 med | 30 kg', description: 'Summary text' })
+  @ApiProperty({
+    example: '✓ Up-to-date | 2 med | 30 kg',
+    description: 'Summary text',
+  })
   summary: string;
 }
-

@@ -58,7 +58,7 @@ export class GeminiService {
   private readonly baseURL = 'https://generativelanguage.googleapis.com/v1beta';
   private readonly axiosInstance: AxiosInstance;
   private cachedModelName: string | null = null;
-  
+
   // Rate limiting: Free tier allows 2 requests per minute
   private readonly maxRequestsPerMinute = 2;
   private readonly requestWindowMs = 60000; // 1 minute
@@ -84,29 +84,29 @@ export class GeminiService {
       },
     });
   }
-  
+
   /**
    * Wait for rate limit before making request
    */
   private async waitForRateLimit(): Promise<void> {
     const now = Date.now();
-    
+
     // Remove timestamps older than 1 minute
     this.requestTimestamps = this.requestTimestamps.filter(
       (timestamp) => now - timestamp < this.requestWindowMs,
     );
-    
+
     // If we've made max requests, wait until the oldest request is outside the window
     if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
       const oldestRequest = this.requestTimestamps[0];
       const waitTime = this.requestWindowMs - (now - oldestRequest) + 2000; // Add 2 second buffer
-      
+
       if (waitTime > 0) {
         this.logger.log(
           `Rate limit: Waiting ${Math.ceil(waitTime / 1000)}s before API call (${this.requestTimestamps.length}/${this.maxRequestsPerMinute} requests in last minute)`,
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
-        
+
         // Clean up again after waiting
         const afterWait = Date.now();
         this.requestTimestamps = this.requestTimestamps.filter(
@@ -114,13 +114,14 @@ export class GeminiService {
         );
       }
     }
-    
+
     // Ensure minimum 30 seconds between requests (for 2 requests per minute)
     if (this.requestTimestamps.length > 0) {
-      const lastRequest = this.requestTimestamps[this.requestTimestamps.length - 1];
+      const lastRequest =
+        this.requestTimestamps[this.requestTimestamps.length - 1];
       const timeSinceLastRequest = now - lastRequest;
       const minInterval = 30000; // 30 seconds minimum between requests
-      
+
       if (timeSinceLastRequest < minInterval) {
         const waitTime = minInterval - timeSinceLastRequest;
         this.logger.log(
@@ -129,11 +130,11 @@ export class GeminiService {
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
-    
+
     // Record this request
     this.requestTimestamps.push(Date.now());
   }
-  
+
   /**
    * Process the request queue
    */
@@ -141,13 +142,13 @@ export class GeminiService {
     if (this.isProcessingQueue || this.requestQueue.length === 0) {
       return;
     }
-    
+
     this.isProcessingQueue = true;
-    
+
     while (this.requestQueue.length > 0) {
       const request = this.requestQueue.shift();
       if (!request) break;
-      
+
       try {
         await this.waitForRateLimit();
         const result = await this.makeApiRequest(
@@ -161,7 +162,7 @@ export class GeminiService {
         );
       }
     }
-    
+
     this.isProcessingQueue = false;
   }
 
@@ -182,10 +183,10 @@ export class GeminiService {
         const models = response.data.models as Array<{ name: string }>;
         // Prioritize Flash models (more generous free tier quotas)
         const preferredNames = [
-          'gemini-2.5-flash',  // Newest flash model with best quotas
-          'gemini-1.5-flash',  // Fast and generous free tier
-          'gemini-2.0-flash',  // Alternative flash model
-          'gemini-1.5-pro',    // Fallback to pro if flash not available
+          'gemini-2.5-flash', // Newest flash model with best quotas
+          'gemini-1.5-flash', // Fast and generous free tier
+          'gemini-2.0-flash', // Alternative flash model
+          'gemini-1.5-pro', // Fallback to pro if flash not available
           'gemini-pro',
           'gemini-1.0-pro',
         ];
@@ -206,8 +207,7 @@ export class GeminiService {
 
         // Fallback to first available model
         if (models.length > 0) {
-          const modelName =
-            models[0].name.split('/').pop() || models[0].name;
+          const modelName = models[0].name.split('/').pop() || models[0].name;
           this.cachedModelName = modelName;
           this.logger.log(`Using first available model: ${modelName}`);
           return modelName;
@@ -234,11 +234,7 @@ export class GeminiService {
       maxRetries?: number;
     } = {},
   ): Promise<string> {
-    let {
-      temperature = 0.7,
-      maxTokens = 1000,
-      maxRetries = 3,
-    } = options;
+    let { temperature = 0.7, maxTokens = 1000, maxRetries = 3 } = options;
 
     const modelName = await this.getAvailableModel();
     const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
@@ -260,8 +256,12 @@ export class GeminiService {
     };
 
     // Log the prompt being sent
-    this.logger.log(`📤 Sending prompt to Gemini API (${prompt.length} chars, maxTokens: ${maxTokens})`);
-    this.logger.debug(`📝 Prompt: ${prompt.substring(0, 500)}${prompt.length > 500 ? '...' : ''}`);
+    this.logger.log(
+      `📤 Sending prompt to Gemini API (${prompt.length} chars, maxTokens: ${maxTokens})`,
+    );
+    this.logger.debug(
+      `📝 Prompt: ${prompt.substring(0, 500)}${prompt.length > 500 ? '...' : ''}`,
+    );
 
     let lastError: Error | null = null;
 
@@ -283,51 +283,72 @@ export class GeminiService {
 
         // Log full response for debugging
         this.logger.log(`📥 API Response status: ${response.status}`);
-        this.logger.log(`📥 API Response data keys: ${Object.keys(response.data || {}).join(', ')}`);
-        this.logger.debug(`📥 Full API Response: ${JSON.stringify(response.data, null, 2)}`);
+        this.logger.log(
+          `📥 API Response data keys: ${Object.keys(response.data || {}).join(', ')}`,
+        );
+        this.logger.debug(
+          `📥 Full API Response: ${JSON.stringify(response.data, null, 2)}`,
+        );
 
         if (response.data.error) {
-          this.logger.error(`Gemini API error: ${JSON.stringify(response.data.error)}`);
+          this.logger.error(
+            `Gemini API error: ${JSON.stringify(response.data.error)}`,
+          );
           throw new Error(
             `Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`,
           );
         }
 
         // Check for candidates
-        if (!response.data.candidates || response.data.candidates.length === 0) {
-          this.logger.error(`❌ No candidates in response: ${JSON.stringify(response.data, null, 2)}`);
+        if (
+          !response.data.candidates ||
+          response.data.candidates.length === 0
+        ) {
+          this.logger.error(
+            `❌ No candidates in response: ${JSON.stringify(response.data, null, 2)}`,
+          );
           throw new Error('No candidates in Gemini API response');
         }
 
         const candidate = response.data.candidates[0];
-        
+
         // Log usage metadata if available
         if (response.data.usageMetadata) {
           const usage = response.data.usageMetadata;
-          const outputTokens = (usage.totalTokenCount || 0) - (usage.promptTokenCount || 0);
+          const outputTokens =
+            (usage.totalTokenCount || 0) - (usage.promptTokenCount || 0);
           this.logger.log(
             `📊 Token usage: ${usage.promptTokenCount} prompt + ${outputTokens} output = ${usage.totalTokenCount} total`,
           );
           if (usage.thoughtsTokenCount) {
-            const actualOutputTokens = outputTokens - (usage.thoughtsTokenCount || 0);
+            const actualOutputTokens =
+              outputTokens - (usage.thoughtsTokenCount || 0);
             this.logger.warn(
               `⚠️ Thoughts tokens used: ${usage.thoughtsTokenCount} (leaves only ${actualOutputTokens} tokens for actual output)`,
             );
           }
         }
-        
+
         // Extract text first to check if we have content
         const text = candidate.content?.parts?.[0]?.text;
-        
+
         // Check for finish reason
         if (candidate.finishReason && candidate.finishReason !== 'STOP') {
           this.logger.warn(`⚠️ Finish reason: ${candidate.finishReason}`);
-          
+
           // If MAX_TOKENS and no text, increase token limit for next attempt
-          if (candidate.finishReason === 'MAX_TOKENS' && (!text || text.trim().length === 0) && attempt < maxRetries - 1) {
+          if (
+            candidate.finishReason === 'MAX_TOKENS' &&
+            (!text || text.trim().length === 0) &&
+            attempt < maxRetries - 1
+          ) {
             // Calculate how much we need: thoughts tokens + reasonable output
-            const thoughtsTokens = response.data.usageMetadata?.thoughtsTokenCount || 0;
-            const newMaxTokens = Math.min(Math.max(thoughtsTokens + 500, maxTokens * 2), 8000);
+            const thoughtsTokens =
+              response.data.usageMetadata?.thoughtsTokenCount || 0;
+            const newMaxTokens = Math.min(
+              Math.max(thoughtsTokens + 500, maxTokens * 2),
+              8000,
+            );
             this.logger.log(
               `🔄 MAX_TOKENS hit with no output. Increasing maxOutputTokens from ${maxTokens} to ${newMaxTokens} for retry`,
             );
@@ -343,12 +364,21 @@ export class GeminiService {
 
         if (!text || text.trim().length === 0) {
           this.logger.error(`❌ Empty text in response`);
-          this.logger.error(`📥 Full response: ${JSON.stringify(response.data, null, 2)}`);
-          
+          this.logger.error(
+            `📥 Full response: ${JSON.stringify(response.data, null, 2)}`,
+          );
+
           // If MAX_TOKENS and no text, try with more tokens
-          if (candidate.finishReason === 'MAX_TOKENS' && attempt < maxRetries - 1) {
-            const thoughtsTokens = response.data.usageMetadata?.thoughtsTokenCount || 0;
-            const newMaxTokens = Math.min(Math.max(thoughtsTokens + 500, maxTokens * 2), 8000);
+          if (
+            candidate.finishReason === 'MAX_TOKENS' &&
+            attempt < maxRetries - 1
+          ) {
+            const thoughtsTokens =
+              response.data.usageMetadata?.thoughtsTokenCount || 0;
+            const newMaxTokens = Math.min(
+              Math.max(thoughtsTokens + 500, maxTokens * 2),
+              8000,
+            );
             this.logger.log(
               `🔄 Retrying with increased maxOutputTokens: ${maxTokens} -> ${newMaxTokens} (accounting for ${thoughtsTokens} thoughts tokens)`,
             );
@@ -359,12 +389,16 @@ export class GeminiService {
             maxTokens = newMaxTokens;
             continue;
           }
-          
+
           throw new Error('Empty response from Gemini API');
         }
 
-        this.logger.log(`✅ Successfully generated text (${text.length} chars)`);
-        this.logger.debug(`📝 Generated text: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
+        this.logger.log(
+          `✅ Successfully generated text (${text.length} chars)`,
+        );
+        this.logger.debug(
+          `📝 Generated text: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`,
+        );
         return text.trim();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -377,13 +411,13 @@ export class GeminiService {
             // Check if it's daily quota exhaustion vs rate limiting
             const errorMessage = errorData?.error?.message || '';
             const errorCode = errorData?.error?.code;
-            const isDailyQuota = 
+            const isDailyQuota =
               errorMessage.includes('RESOURCE_EXHAUSTED') ||
               errorMessage.includes('quota') ||
               errorMessage.includes('daily limit') ||
               errorMessage.includes('exceeded') ||
               errorCode === 429; // 429 can mean either, but if message suggests quota, treat as daily
-            
+
             if (isDailyQuota && errorMessage.toLowerCase().includes('quota')) {
               // Daily quota exhausted - don't retry, fail immediately
               this.logger.error(
@@ -393,14 +427,16 @@ export class GeminiService {
                 `AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`,
               );
             }
-            
+
             // Otherwise, it's a rate limit (per-minute) - handle with retry
             // Parse retry delay from API response
             let retryAfter = 60000; // Default 60 seconds
-            
+
             if (errorData?.error?.details) {
               for (const detail of errorData.error.details) {
-                if (detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo') {
+                if (
+                  detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+                ) {
                   const retryDelay = detail.retryDelay;
                   if (typeof retryDelay === 'string') {
                     // Parse "59s" or "6.333907741s" format
@@ -412,21 +448,27 @@ export class GeminiService {
                       retryAfter += 2000;
                     } else {
                       // Try simple parse
-                      const seconds = parseFloat(retryDelay.replace(/[^0-9.]/g, ''));
+                      const seconds = parseFloat(
+                        retryDelay.replace(/[^0-9.]/g, ''),
+                      );
                       if (!isNaN(seconds)) {
                         retryAfter = Math.ceil(seconds * 1000) + 2000;
                       }
                     }
-                  } else if (typeof retryDelay === 'object' && retryDelay.seconds) {
+                  } else if (
+                    typeof retryDelay === 'object' &&
+                    retryDelay.seconds
+                  ) {
                     retryAfter = Math.ceil(retryDelay.seconds * 1000) + 2000;
                   }
                 }
               }
             }
-            
+
             // Also check error message for retry time
             if (errorData?.error?.message) {
-              const messageMatch = errorData.error.message.match(/retry in ([\d.]+)s/i);
+              const messageMatch =
+                errorData.error.message.match(/retry in ([\d.]+)s/i);
               if (messageMatch) {
                 const seconds = parseFloat(messageMatch[1]);
                 if (!isNaN(seconds)) {
@@ -453,7 +495,12 @@ export class GeminiService {
                 `Rate limit exceeded. Please try again in ${Math.ceil(retryAfter / 1000)} seconds.`,
               );
             }
-          } else if (status && status >= 400 && status < 500 && status !== 429) {
+          } else if (
+            status &&
+            status >= 400 &&
+            status < 500 &&
+            status !== 429
+          ) {
             // Client errors (except 429) - don't retry
             throw lastError;
           }
@@ -499,5 +546,3 @@ export class GeminiService {
     });
   }
 }
-
-

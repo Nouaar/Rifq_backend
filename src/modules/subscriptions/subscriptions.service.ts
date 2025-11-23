@@ -10,10 +10,18 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
-import { Subscription, SubscriptionDocument, SubscriptionStatus } from './schemas/subscription.schema';
+import {
+  Subscription,
+  SubscriptionDocument,
+  SubscriptionStatus,
+} from './schemas/subscription.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import { SubscriptionResponseDto, CreateSubscriptionResponseDto, CancelSubscriptionResponseDto } from './dto/subscription-response.dto';
+import {
+  SubscriptionResponseDto,
+  CreateSubscriptionResponseDto,
+  CancelSubscriptionResponseDto,
+} from './dto/subscription-response.dto';
 import { VeterinariansService } from '../veterinarians/veterinarians.service';
 import { PetSittersService } from '../pet-sitters/pet-sitters.service';
 
@@ -34,7 +42,9 @@ export class SubscriptionsService {
     // Initialize Stripe
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (!stripeSecretKey) {
-      console.warn('⚠️ STRIPE_SECRET_KEY not found. Stripe features will be disabled.');
+      console.warn(
+        '⚠️ STRIPE_SECRET_KEY not found. Stripe features will be disabled.',
+      );
     } else {
       this.stripe = new Stripe(stripeSecretKey, {
         apiVersion: '2025-11-17.clover',
@@ -64,22 +74,33 @@ export class SubscriptionsService {
     // Check if user already has an active, expires_soon, or pending subscription
     const existingSubscription = await this.subscriptionModel.findOne({
       userId: user._id,
-      status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRES_SOON, SubscriptionStatus.PENDING] },
+      status: {
+        $in: [
+          SubscriptionStatus.ACTIVE,
+          SubscriptionStatus.EXPIRES_SOON,
+          SubscriptionStatus.PENDING,
+        ],
+      },
     });
 
     if (existingSubscription) {
-      throw new ConflictException('User already has an active or pending subscription');
+      throw new ConflictException(
+        'User already has an active or pending subscription',
+      );
     }
 
     // Check if user has a canceled or expired subscription - we'll reuse it
     const canceledOrExpiredSubscription = await this.subscriptionModel.findOne({
       userId: user._id,
-      status: { $in: [SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED] },
+      status: {
+        $in: [SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED],
+      },
     });
 
     // In test mode, create subscription without Stripe (for development)
-    const isTestMode = this.configService.get<string>('NODE_ENV') !== 'production' ||
-                       !this.stripe;
+    const isTestMode =
+      this.configService.get<string>('NODE_ENV') !== 'production' ||
+      !this.stripe;
 
     let stripeSubscriptionId: string | undefined;
     let stripeCustomerId: string | undefined;
@@ -115,7 +136,9 @@ export class SubscriptionsService {
             });
           }
         } else {
-          throw new BadRequestException('User email is required for subscription');
+          throw new BadRequestException(
+            'User email is required for subscription',
+          );
         }
 
         stripeCustomerId = customer.id;
@@ -139,14 +162,16 @@ export class SubscriptionsService {
         }
 
         // Get client secret for PaymentSheet
-        const invoice = sub.latest_invoice as any;
+        const invoice = sub.latest_invoice;
         if (invoice?.payment_intent) {
-          const paymentIntent = invoice.payment_intent as any;
+          const paymentIntent = invoice.payment_intent;
           clientSecret = paymentIntent.client_secret || undefined;
         }
       } catch (error) {
         console.error('Stripe subscription creation error:', error);
-        throw new BadRequestException(`Failed to create Stripe subscription: ${error.message}`);
+        throw new BadRequestException(
+          `Failed to create Stripe subscription: ${error.message}`,
+        );
       }
     }
 
@@ -161,7 +186,7 @@ export class SubscriptionsService {
       canceledOrExpiredSubscription.currentPeriodStart = currentPeriodStart;
       canceledOrExpiredSubscription.currentPeriodEnd = currentPeriodEnd;
       canceledOrExpiredSubscription.cancelAtPeriodEnd = false;
-      
+
       savedSubscription = await canceledOrExpiredSubscription.save();
     } else {
       // Create new subscription record in database
@@ -182,7 +207,8 @@ export class SubscriptionsService {
     return {
       subscription: this.mapToResponseDto(savedSubscription),
       clientSecret,
-      message: 'Subscription created successfully. Please verify your email to activate.',
+      message:
+        'Subscription created successfully. Please verify your email to activate.',
     };
   }
 
@@ -192,8 +218,10 @@ export class SubscriptionsService {
   async findByUserId(userId: string): Promise<SubscriptionResponseDto | null> {
     // Convert string userId to ObjectId for query
     const userObjectId = new Types.ObjectId(userId);
-    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
-    
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
+
     if (!subscription) {
       return null;
     }
@@ -203,7 +231,8 @@ export class SubscriptionsService {
 
     // Check if subscription has expired
     if (
-      (subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.EXPIRES_SOON) &&
+      (subscription.status === SubscriptionStatus.ACTIVE ||
+        subscription.status === SubscriptionStatus.EXPIRES_SOON) &&
       subscription.currentPeriodEnd &&
       new Date() > subscription.currentPeriodEnd
     ) {
@@ -243,9 +272,13 @@ export class SubscriptionsService {
    */
   async activate(userId: string): Promise<SubscriptionResponseDto> {
     const userObjectId = new Types.ObjectId(userId);
-    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
     if (!subscription) {
-      console.log(`⚠️ Cannot activate: No subscription found for userId: ${userId}`);
+      console.log(
+        `⚠️ Cannot activate: No subscription found for userId: ${userId}`,
+      );
       throw new NotFoundException('Subscription not found');
     }
 
@@ -268,14 +301,21 @@ export class SubscriptionsService {
    */
   async renew(userId: string): Promise<SubscriptionResponseDto> {
     const userObjectId = new Types.ObjectId(userId);
-    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
     // Only allow renewing active or expires_soon subscriptions
-    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.EXPIRES_SOON) {
-      throw new BadRequestException('Only active or expires soon subscriptions can be renewed');
+    if (
+      subscription.status !== SubscriptionStatus.ACTIVE &&
+      subscription.status !== SubscriptionStatus.EXPIRES_SOON
+    ) {
+      throw new BadRequestException(
+        'Only active or expires soon subscriptions can be renewed',
+      );
     }
 
     // Extend the subscription period by 1 month
@@ -299,7 +339,7 @@ export class SubscriptionsService {
     subscription.currentPeriodStart = newPeriodStart;
     subscription.currentPeriodEnd = newPeriodEnd;
     subscription.cancelAtPeriodEnd = false;
-    
+
     // Update status based on new expiration date
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     if (newPeriodEnd <= sevenDaysFromNow) {
@@ -321,20 +361,29 @@ export class SubscriptionsService {
    */
   async cancel(userId: string): Promise<CancelSubscriptionResponseDto> {
     const userObjectId = new Types.ObjectId(userId);
-    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
-    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.EXPIRES_SOON) {
-      throw new BadRequestException('Only active or expires soon subscriptions can be canceled');
+    if (
+      subscription.status !== SubscriptionStatus.ACTIVE &&
+      subscription.status !== SubscriptionStatus.EXPIRES_SOON
+    ) {
+      throw new BadRequestException(
+        'Only active or expires soon subscriptions can be canceled',
+      );
     }
 
     // Cancel at Stripe if exists
     if (subscription.stripeSubscriptionId && this.stripe) {
       try {
         // Cancel immediately in Stripe
-        await this.stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+        await this.stripe.subscriptions.cancel(
+          subscription.stripeSubscriptionId,
+        );
       } catch (error) {
         console.error('Stripe cancellation error:', error);
         // Continue with local cancellation even if Stripe fails
@@ -360,12 +409,16 @@ export class SubscriptionsService {
       }
     } catch (error) {
       // Log error but don't fail the cancellation if record doesn't exist
-      console.warn(`⚠️ Could not remove ${subscription.role} record for user ${userId}:`, error);
+      console.warn(
+        `⚠️ Could not remove ${subscription.role} record for user ${userId}:`,
+        error,
+      );
     }
 
     return {
       subscription: this.mapToResponseDto(subscription),
-      message: 'Subscription has been canceled. Your role has been downgraded to owner and your clinic/sitter profile has been removed.',
+      message:
+        'Subscription has been canceled. Your role has been downgraded to owner and your clinic/sitter profile has been removed.',
     };
   }
 
@@ -374,28 +427,42 @@ export class SubscriptionsService {
    */
   async reactivate(userId: string): Promise<SubscriptionResponseDto> {
     const userObjectId = new Types.ObjectId(userId);
-    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
     // Allow reactivation if subscription is active or expires_soon (even if scheduled to cancel)
-    if ((subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.EXPIRES_SOON) && !subscription.cancelAtPeriodEnd) {
+    if (
+      (subscription.status === SubscriptionStatus.ACTIVE ||
+        subscription.status === SubscriptionStatus.EXPIRES_SOON) &&
+      !subscription.cancelAtPeriodEnd
+    ) {
       // Already active/expires_soon and not scheduled to cancel, nothing to do
       return this.mapToResponseDto(subscription);
     }
 
     // If subscription is expired or canceled, we need to create a new one
-    if (subscription.status === SubscriptionStatus.EXPIRED || subscription.status === SubscriptionStatus.CANCELED) {
-      throw new BadRequestException('Cannot reactivate expired or canceled subscription. Please create a new subscription.');
+    if (
+      subscription.status === SubscriptionStatus.EXPIRED ||
+      subscription.status === SubscriptionStatus.CANCELED
+    ) {
+      throw new BadRequestException(
+        'Cannot reactivate expired or canceled subscription. Please create a new subscription.',
+      );
     }
 
     // Reactivate at Stripe if exists
     if (subscription.stripeSubscriptionId && this.stripe) {
       try {
-        await this.stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-          cancel_at_period_end: false,
-        });
+        await this.stripe.subscriptions.update(
+          subscription.stripeSubscriptionId,
+          {
+            cancel_at_period_end: false,
+          },
+        );
       } catch (error) {
         console.error('Stripe reactivation error:', error);
         // Continue with local reactivation even if Stripe fails
@@ -416,13 +483,13 @@ export class SubscriptionsService {
     switch (event.type) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         await this.updateSubscriptionFromStripe(subscription);
         break;
       }
 
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object;
         await this.handleSubscriptionDeleted(subscription);
         break;
       }
@@ -442,7 +509,9 @@ export class SubscriptionsService {
         const invoice = event.data.object as any;
         if (invoice.subscription) {
           // Handle payment failure - you might want to notify the user
-          console.warn(`Payment failed for subscription: ${invoice.subscription}`);
+          console.warn(
+            `Payment failed for subscription: ${invoice.subscription}`,
+          );
         }
         break;
       }
@@ -463,7 +532,9 @@ export class SubscriptionsService {
     });
 
     if (!subscription) {
-      console.warn(`Subscription not found for Stripe ID: ${stripeSubscription.id}`);
+      console.warn(
+        `Subscription not found for Stripe ID: ${stripeSubscription.id}`,
+      );
       return;
     }
 
@@ -475,9 +546,7 @@ export class SubscriptionsService {
       );
     }
     if (sub.current_period_end) {
-      subscription.currentPeriodEnd = new Date(
-        sub.current_period_end * 1000,
-      );
+      subscription.currentPeriodEnd = new Date(sub.current_period_end * 1000);
     }
     subscription.cancelAtPeriodEnd = sub.cancel_at_period_end || false;
 
@@ -495,7 +564,9 @@ export class SubscriptionsService {
       case 'past_due':
         subscription.status = SubscriptionStatus.EXPIRED;
         // Downgrade user role
-        await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+        await this.userModel.findByIdAndUpdate(subscription.userId, {
+          role: 'owner',
+        });
         break;
     }
 
@@ -521,7 +592,9 @@ export class SubscriptionsService {
     await subscription.save();
 
     // Downgrade user role to owner
-    await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+    await this.userModel.findByIdAndUpdate(subscription.userId, {
+      role: 'owner',
+    });
   }
 
   /**
@@ -530,7 +603,9 @@ export class SubscriptionsService {
   async checkAndExpireSubscriptions(): Promise<void> {
     const now = new Date();
     const expiredSubscriptions = await this.subscriptionModel.find({
-      status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRES_SOON] },
+      status: {
+        $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRES_SOON],
+      },
       currentPeriodEnd: { $lt: now },
     });
 
@@ -539,7 +614,9 @@ export class SubscriptionsService {
       await subscription.save();
 
       // Downgrade user role
-      await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+      await this.userModel.findByIdAndUpdate(subscription.userId, {
+        role: 'owner',
+      });
     }
   }
 
@@ -549,7 +626,7 @@ export class SubscriptionsService {
   async checkAndCancelExpiredSubscriptions(): Promise<void> {
     const now = new Date();
     const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // 3 days ago
-    
+
     // Find subscriptions that are expired and have been expired for more than 3 days
     // We check currentPeriodEnd to see when the subscription expired (3 days after period end)
     const expiredSubscriptions = await this.subscriptionModel.find({
@@ -565,29 +642,44 @@ export class SubscriptionsService {
       // Remove veterinarian or pet sitter record
       try {
         if (subscription.role === 'vet') {
-          await this.veterinariansService.remove(subscription.userId.toString());
-          console.log(`✅ Auto-canceled: Removed veterinarian record for user ${subscription.userId}`);
+          await this.veterinariansService.remove(
+            subscription.userId.toString(),
+          );
+          console.log(
+            `✅ Auto-canceled: Removed veterinarian record for user ${subscription.userId}`,
+          );
         } else if (subscription.role === 'sitter') {
           await this.petSittersService.remove(subscription.userId.toString());
-          console.log(`✅ Auto-canceled: Removed pet sitter record for user ${subscription.userId}`);
+          console.log(
+            `✅ Auto-canceled: Removed pet sitter record for user ${subscription.userId}`,
+          );
         }
       } catch (error) {
         // Log error but don't fail if record doesn't exist
-        console.warn(`⚠️ Auto-cancel: Could not remove ${subscription.role} record for user ${subscription.userId}:`, error);
+        console.warn(
+          `⚠️ Auto-cancel: Could not remove ${subscription.role} record for user ${subscription.userId}:`,
+          error,
+        );
       }
 
-      console.log(`✅ Auto-canceled subscription for userId: ${subscription.userId} (expired for more than 3 days)`);
+      console.log(
+        `✅ Auto-canceled subscription for userId: ${subscription.userId} (expired for more than 3 days)`,
+      );
     }
 
     if (expiredSubscriptions.length > 0) {
-      console.log(`✅ Auto-canceled ${expiredSubscriptions.length} subscription(s) that were expired for more than 3 days`);
+      console.log(
+        `✅ Auto-canceled ${expiredSubscriptions.length} subscription(s) that were expired for more than 3 days`,
+      );
     }
   }
 
   /**
    * Map subscription document to response DTO
    */
-  private mapToResponseDto(subscription: SubscriptionDocument): SubscriptionResponseDto {
+  private mapToResponseDto(
+    subscription: SubscriptionDocument,
+  ): SubscriptionResponseDto {
     return {
       id: subscription._id.toString(),
       userId: subscription.userId.toString(),
@@ -603,4 +695,3 @@ export class SubscriptionsService {
     };
   }
 }
-

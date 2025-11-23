@@ -12,7 +12,13 @@ import { ConfigModule } from '@nestjs/config';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
-  imports: [UsersModule, JwtModule.register({}), MailModule, ConfigModule, SubscriptionsModule],
+  imports: [
+    UsersModule,
+    JwtModule.register({}),
+    MailModule,
+    ConfigModule,
+    SubscriptionsModule,
+  ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
 })

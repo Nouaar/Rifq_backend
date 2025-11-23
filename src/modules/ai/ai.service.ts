@@ -8,10 +8,7 @@ import {
   MedicalHistoryDocument,
 } from '../pets/schemas/medical-history.schema';
 import { GeminiService } from './gemini.service';
-import {
-  AiTipsResponseDto,
-  TipItemDto,
-} from './dto/ai-tips-response.dto';
+import { AiTipsResponseDto, TipItemDto } from './dto/ai-tips-response.dto';
 import {
   AiRecommendationsResponseDto,
   RecommendationItemDto,
@@ -33,12 +30,18 @@ interface CachedResponse<T> {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  
+
   // Cache for AI responses (24 hours TTL to reduce API calls and stay within daily quota)
   private readonly cacheTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
   private tipsCache = new Map<string, CachedResponse<AiTipsResponseDto>>();
-  private recommendationsCache = new Map<string, CachedResponse<AiRecommendationsResponseDto>>();
-  private remindersCache = new Map<string, CachedResponse<AiRemindersResponseDto>>();
+  private recommendationsCache = new Map<
+    string,
+    CachedResponse<AiRecommendationsResponseDto>
+  >();
+  private remindersCache = new Map<
+    string,
+    CachedResponse<AiRemindersResponseDto>
+  >();
   private statusCache = new Map<string, CachedResponse<AiStatusResponseDto>>();
 
   constructor(
@@ -217,7 +220,8 @@ Pet Information:
     // Add age-based reminders
     if (pet.age) {
       if (pet.age >= 10) {
-        prompt += '\n\n⚠️ Senior pet (10+ years) - should include reminders for:';
+        prompt +=
+          '\n\n⚠️ Senior pet (10+ years) - should include reminders for:';
         prompt += '\n- Senior health checkup (every 6 months)';
         prompt += '\n- Blood work monitoring';
         prompt += '\n- Joint care and mobility';
@@ -258,7 +262,8 @@ Pet Information:
     // Add age-based health note
     if (pet.age) {
       if (pet.age >= 10) {
-        prompt += '\n⚠️ Senior pet (10+ years) - requires more frequent monitoring';
+        prompt +=
+          '\n⚠️ Senior pet (10+ years) - requires more frequent monitoring';
       } else if (pet.age < 1) {
         prompt += '\n⚠️ Young pet - vaccination schedule critical';
       }
@@ -271,7 +276,8 @@ Pet Information:
       ) {
         prompt += `\n- Vaccinations: ${medicalHistory.vaccinations.join(', ')}`;
       } else {
-        prompt += '\n- Vaccinations: None recorded ⚠️ (may need core vaccines - this requires attention)';
+        prompt +=
+          '\n- Vaccinations: None recorded ⚠️ (may need core vaccines - this requires attention)';
       }
 
       if (
@@ -329,7 +335,7 @@ Return ONLY the status word/phrase, nothing else.`;
     let tipText = lines[0] || response.trim();
 
     // Remove numbering if present
-    tipText = tipText.replace(/^[\d]+[\.\)]\s+/, '').trim();
+    tipText = tipText.replace(/^[\d]+[.)]\s+/, '').trim();
 
     // Get emoji based on species
     const emoji = this.getEmojiForPet(pet.species);
@@ -357,12 +363,12 @@ Return ONLY the status word/phrase, nothing else.`;
 
     for (const line of lines) {
       if (
-        line.match(/^[\d]+[\.\)]\s+/) ||
+        line.match(/^[\d]+[.)]\s+/) ||
         line.startsWith('- ') ||
         line.startsWith('• ')
       ) {
         const cleaned = line
-          .replace(/^[\d]+[\.\)]\s+/, '')
+          .replace(/^[\d]+[.)]\s+/, '')
           .replace(/^[-•]\s+/, '')
           .trim();
 
@@ -410,14 +416,14 @@ Return ONLY the status word/phrase, nothing else.`;
     for (const line of lines) {
       // Try multiple formats: numbered list, bullet points, or plain text
       if (
-        line.match(/^[\d]+[\.\)]\s+/) ||
+        line.match(/^[\d]+[.)]\s+/) ||
         line.startsWith('- ') ||
         line.startsWith('• ') ||
         line.startsWith('* ') ||
         (reminderIndex === 0 && line.length > 20) // First substantial line
       ) {
         const cleaned = line
-          .replace(/^[\d]+[\.\)]\s+/, '')
+          .replace(/^[\d]+[.)]\s+/, '')
           .replace(/^[-•*]\s+/, '')
           .trim();
 
@@ -442,7 +448,9 @@ Return ONLY the status word/phrase, nothing else.`;
 
     // If no reminders parsed, try to extract from the full response
     if (reminders.length === 0 && response.trim().length > 0) {
-      this.logger.warn(`No reminders parsed from response, attempting fallback parsing`);
+      this.logger.warn(
+        `No reminders parsed from response, attempting fallback parsing`,
+      );
       // Split by sentences or common separators
       const sentences = response
         .split(/[.!?]\s+|\.\n/)
@@ -482,10 +490,15 @@ Return ONLY the status word/phrase, nothing else.`;
   ): AiStatusResponseDto {
     let status = statusResponse.status;
     const isSenior = pet.age && pet.age >= 10;
-    const hasConditions = medicalHistory?.chronicConditions && medicalHistory.chronicConditions.length > 0;
-    const hasMedications = medicalHistory?.currentMedications && medicalHistory.currentMedications.length > 0;
-    const noVaccinations = !medicalHistory?.vaccinations || medicalHistory.vaccinations.length === 0;
-    
+    const hasConditions =
+      medicalHistory?.chronicConditions &&
+      medicalHistory.chronicConditions.length > 0;
+    const hasMedications =
+      medicalHistory?.currentMedications &&
+      medicalHistory.currentMedications.length > 0;
+    const noVaccinations =
+      !medicalHistory?.vaccinations || medicalHistory.vaccinations.length === 0;
+
     // Force "Needs Attention" if status is "Healthy" for at-risk pets
     if (status.toLowerCase().includes('healthy')) {
       if (isSenior || hasConditions || hasMedications || noVaccinations) {
@@ -493,14 +506,16 @@ Return ONLY the status word/phrase, nothing else.`;
           `⚠️ Overriding "Healthy" status for ${pet.name} (age: ${pet.age}, conditions: ${hasConditions}, meds: ${hasMedications}, vaccines: ${!noVaccinations})`,
         );
         status = 'Needs Attention';
-        
+
         // Rebuild pills and summary with new status
-        const pills: StatusPillDto[] = [{
-          text: 'Needs Attention',
-          bg: '#F97316',
-          fg: '#9A3412',
-        }];
-        
+        const pills: StatusPillDto[] = [
+          {
+            text: 'Needs Attention',
+            bg: '#F97316',
+            fg: '#9A3412',
+          },
+        ];
+
         const summaryParts: string[] = [];
         if (isSenior) {
           summaryParts.push('Senior pet - monitor closely');
@@ -514,10 +529,13 @@ Return ONLY the status word/phrase, nothing else.`;
         }
         if (noVaccinations) {
           summaryParts.push('⚠ Needs vaccines');
-        } else if (medicalHistory?.vaccinations && medicalHistory.vaccinations.length > 0) {
+        } else if (
+          medicalHistory?.vaccinations &&
+          medicalHistory.vaccinations.length > 0
+        ) {
           summaryParts.push('✓ Up-to-date');
         }
-        
+
         return {
           status,
           pills,
@@ -525,7 +543,7 @@ Return ONLY the status word/phrase, nothing else.`;
         };
       }
     }
-    
+
     // Return original if no override needed
     return statusResponse;
   }
@@ -542,10 +560,15 @@ Return ONLY the status word/phrase, nothing else.`;
 
     // Post-process: Override "Healthy" for senior pets or pets with conditions
     const isSenior = pet.age && pet.age >= 10;
-    const hasConditions = medicalHistory?.chronicConditions && medicalHistory.chronicConditions.length > 0;
-    const hasMedications = medicalHistory?.currentMedications && medicalHistory.currentMedications.length > 0;
-    const noVaccinations = !medicalHistory?.vaccinations || medicalHistory.vaccinations.length === 0;
-    
+    const hasConditions =
+      medicalHistory?.chronicConditions &&
+      medicalHistory.chronicConditions.length > 0;
+    const hasMedications =
+      medicalHistory?.currentMedications &&
+      medicalHistory.currentMedications.length > 0;
+    const noVaccinations =
+      !medicalHistory?.vaccinations || medicalHistory.vaccinations.length === 0;
+
     // Force "Needs Attention" if AI incorrectly returned "Healthy" for at-risk pets
     if (status.toLowerCase().includes('healthy')) {
       if (isSenior || hasConditions || hasMedications || noVaccinations) {
@@ -586,7 +609,10 @@ Return ONLY the status word/phrase, nothing else.`;
     const summaryParts: string[] = [];
 
     // If status is "Needs Attention", don't say "All good"
-    if (status.toLowerCase().includes('attention') || status.toLowerCase().includes('checkup')) {
+    if (
+      status.toLowerCase().includes('attention') ||
+      status.toLowerCase().includes('checkup')
+    ) {
       if (isSenior) {
         summaryParts.push('Senior pet - monitor closely');
       }
@@ -599,7 +625,10 @@ Return ONLY the status word/phrase, nothing else.`;
       }
       if (noVaccinations) {
         summaryParts.push('⚠ Needs vaccines');
-      } else if (medicalHistory?.vaccinations && medicalHistory.vaccinations.length > 0) {
+      } else if (
+        medicalHistory?.vaccinations &&
+        medicalHistory.vaccinations.length > 0
+      ) {
         summaryParts.push('✓ Up-to-date');
       }
     } else {
@@ -613,8 +642,7 @@ Return ONLY the status word/phrase, nothing else.`;
         summaryParts.push('⚠ Needs vaccines');
       }
 
-      const medCount =
-        medicalHistory?.currentMedications?.length || 0;
+      const medCount = medicalHistory?.currentMedications?.length || 0;
       if (medCount > 0) {
         summaryParts.push(`${medCount} med${medCount > 1 ? 's' : ''}`);
       }
@@ -626,7 +654,10 @@ Return ONLY the status word/phrase, nothing else.`;
 
     // Set summary based on status
     let summary = summaryParts.join(' | ') || 'All good';
-    if (status.toLowerCase().includes('attention') || status.toLowerCase().includes('checkup')) {
+    if (
+      status.toLowerCase().includes('attention') ||
+      status.toLowerCase().includes('checkup')
+    ) {
       // Don't say "All good" for pets that need attention
       if (summary === 'All good') {
         summary = 'Needs monitoring';
@@ -656,7 +687,9 @@ Return ONLY the status word/phrase, nothing else.`;
       return null;
     }
 
-    this.logger.log(`📦 Returning cached response for ${key} (age: ${Math.floor(age / 1000)}s)`);
+    this.logger.log(
+      `📦 Returning cached response for ${key} (age: ${Math.floor(age / 1000)}s)`,
+    );
     return cached.data;
   }
 
@@ -688,7 +721,9 @@ Return ONLY the status word/phrase, nothing else.`;
     const staleCache = this.tipsCache.get(petId);
     if (staleCache) {
       // Return stale cache immediately and refresh in background
-      this.logger.log(`📦 Returning stale cached tips for ${petId} (will refresh in background)`);
+      this.logger.log(
+        `📦 Returning stale cached tips for ${petId} (will refresh in background)`,
+      );
       this.refreshCacheInBackground(petId, () => this.fetchAndCacheTips(petId));
       return staleCache.data;
     }
@@ -709,53 +744,72 @@ Return ONLY the status word/phrase, nothing else.`;
 
       const tip = this.parseTipsResponse(response, pet);
       const result = { tips: [tip] };
-      
+
       // Cache the result
       this.setCached(this.tipsCache, petId, result);
-      
+
       return result;
     } catch (error) {
       this.logger.error(`Error generating tips for pet ${petId}:`, error);
-      
+
       // Return cached data if available (even if expired) as fallback
       const staleCache = this.tipsCache.get(petId);
       if (staleCache) {
-        this.logger.warn(`⚠️ Returning stale cached tips for ${petId} due to error`);
+        this.logger.warn(
+          `⚠️ Returning stale cached tips for ${petId} due to error`,
+        );
         return staleCache.data;
       }
-      
+
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
-        throw new Error('AI service is not configured. Please contact support.');
+        throw new Error(
+          'AI service is not configured. Please contact support.',
+        );
       }
-      
+
       // Check if it's a daily quota error - don't retry, return error
-      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('AI_DAILY_QUOTA_EXCEEDED')
+      ) {
         this.logger.error(`❌ Daily quota exceeded for ${petId}`);
         // Return stale cache if available, otherwise throw
         const stale = this.tipsCache.get(petId);
         if (stale) {
-          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          this.logger.warn(
+            `⚠️ Returning stale cache due to daily quota exhaustion`,
+          );
           return stale.data;
         }
         // Re-throw with clear message
-        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+        throw new Error(
+          'AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.',
+        );
       }
-      
+
       // Check if it's a rate limit error (per-minute) - can retry later
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
-        this.logger.warn(`⚠️ Rate limit hit for ${petId}, returning stale cache if available`);
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
+        this.logger.warn(
+          `⚠️ Rate limit hit for ${petId}, returning stale cache if available`,
+        );
         const stale = this.tipsCache.get(petId);
         if (stale) {
           return stale.data;
         }
       }
-      
+
       throw error;
     }
   }
 
-  private refreshCacheInBackground(petId: string, fetchFn: () => Promise<any>): void {
+  private refreshCacheInBackground(
+    petId: string,
+    fetchFn: () => Promise<any>,
+  ): void {
     // Don't await - run in background
     fetchFn().catch((error) => {
       this.logger.warn(`Background refresh failed for ${petId}:`, error);
@@ -785,47 +839,61 @@ Return ONLY the status word/phrase, nothing else.`;
 
       const recommendations = this.parseRecommendationsResponse(response);
       const result = { recommendations };
-      
+
       // Cache the result
       this.setCached(this.recommendationsCache, petId, result);
-      
+
       return result;
     } catch (error) {
       this.logger.error(
         `Error generating recommendations for pet ${petId}:`,
         error,
       );
-      
+
       // Return cached data if available (even if expired) as fallback
       const staleCache = this.recommendationsCache.get(petId);
       if (staleCache) {
-        this.logger.warn(`⚠️ Returning stale cached recommendations for ${petId} due to error`);
+        this.logger.warn(
+          `⚠️ Returning stale cached recommendations for ${petId} due to error`,
+        );
         return staleCache.data;
       }
-      
+
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
-        throw new Error('AI service is not configured. Please contact support.');
+        throw new Error(
+          'AI service is not configured. Please contact support.',
+        );
       }
-      
+
       // Check if it's a daily quota error
-      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('AI_DAILY_QUOTA_EXCEEDED')
+      ) {
         const stale = this.recommendationsCache.get(petId);
         if (stale) {
-          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          this.logger.warn(
+            `⚠️ Returning stale cache due to daily quota exhaustion`,
+          );
           return stale.data;
         }
-        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+        throw new Error(
+          'AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.',
+        );
       }
-      
+
       // Check if it's a rate limit error
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         const stale = this.recommendationsCache.get(petId);
         if (stale) {
           return stale.data;
         }
       }
-      
+
       throw error;
     }
   }
@@ -850,55 +918,70 @@ Return ONLY the status word/phrase, nothing else.`;
       });
 
       const reminders = this.parseRemindersResponse(response, pet);
-      
+
       // Log reminder generation
-      this.logger.log(`Generated ${reminders.length} reminders for ${pet.name}`);
+      this.logger.log(
+        `Generated ${reminders.length} reminders for ${pet.name}`,
+      );
       if (reminders.length === 0) {
-        this.logger.warn(`⚠️ No reminders parsed from response for ${pet.name}. Response: ${response.substring(0, 200)}`);
+        this.logger.warn(
+          `⚠️ No reminders parsed from response for ${pet.name}. Response: ${response.substring(0, 200)}`,
+        );
       }
-      
+
       const result = { reminders };
-      
+
       // Cache the result
       this.setCached(this.remindersCache, petId, result);
-      
+
       return result;
     } catch (error) {
-      this.logger.error(
-        `Error generating reminders for pet ${petId}:`,
-        error,
-      );
-      
+      this.logger.error(`Error generating reminders for pet ${petId}:`, error);
+
       // Return cached data if available (even if expired) as fallback
       const staleCache = this.remindersCache.get(petId);
       if (staleCache) {
-        this.logger.warn(`⚠️ Returning stale cached reminders for ${petId} due to error`);
+        this.logger.warn(
+          `⚠️ Returning stale cached reminders for ${petId} due to error`,
+        );
         return staleCache.data;
       }
-      
+
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
-        throw new Error('AI service is not configured. Please contact support.');
+        throw new Error(
+          'AI service is not configured. Please contact support.',
+        );
       }
-      
+
       // Check if it's a daily quota error
-      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('AI_DAILY_QUOTA_EXCEEDED')
+      ) {
         const stale = this.remindersCache.get(petId);
         if (stale) {
-          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          this.logger.warn(
+            `⚠️ Returning stale cache due to daily quota exhaustion`,
+          );
           return stale.data;
         }
-        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+        throw new Error(
+          'AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.',
+        );
       }
-      
+
       // Check if it's a rate limit error
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         const stale = this.remindersCache.get(petId);
         if (stale) {
           return stale.data;
         }
       }
-      
+
       throw error;
     }
   }
@@ -925,47 +1008,73 @@ Return ONLY the status word/phrase, nothing else.`;
       });
 
       const result = this.parseStatusResponse(response, pet, medicalHistory);
-      
+
       // Cache the result
       this.setCached(this.statusCache, petId, result);
-      
+
       return result;
     } catch (error) {
       this.logger.error(`Error generating status for pet ${petId}:`, error);
-      
+
       // Return cached data if available (even if expired) as fallback
       const staleCache = this.statusCache.get(petId);
       if (staleCache) {
-        this.logger.warn(`⚠️ Returning stale cached status for ${petId} due to error`);
+        this.logger.warn(
+          `⚠️ Returning stale cached status for ${petId} due to error`,
+        );
         const { pet, medicalHistory } = await this.getPetWithHistory(petId);
-        return this.applyStatusPostProcessing(staleCache.data, pet, medicalHistory);
+        return this.applyStatusPostProcessing(
+          staleCache.data,
+          pet,
+          medicalHistory,
+        );
       }
-      
+
       // Check if it's an API key error
       if (error instanceof Error && error.message.includes('GEMINI_API_KEY')) {
-        throw new Error('AI service is not configured. Please contact support.');
+        throw new Error(
+          'AI service is not configured. Please contact support.',
+        );
       }
-      
+
       // Check if it's a daily quota error
-      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('AI_DAILY_QUOTA_EXCEEDED')
+      ) {
         const stale = this.statusCache.get(petId);
         if (stale) {
-          this.logger.warn(`⚠️ Returning stale cache due to daily quota exhaustion`);
+          this.logger.warn(
+            `⚠️ Returning stale cache due to daily quota exhaustion`,
+          );
           const { pet, medicalHistory } = await this.getPetWithHistory(petId);
-          return this.applyStatusPostProcessing(stale.data, pet, medicalHistory);
+          return this.applyStatusPostProcessing(
+            stale.data,
+            pet,
+            medicalHistory,
+          );
         }
-        throw new Error('AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.');
+        throw new Error(
+          'AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow.',
+        );
       }
-      
+
       // Check if it's a rate limit error
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         const stale = this.statusCache.get(petId);
         if (stale) {
           const { pet, medicalHistory } = await this.getPetWithHistory(petId);
-          return this.applyStatusPostProcessing(stale.data, pet, medicalHistory);
+          return this.applyStatusPostProcessing(
+            stale.data,
+            pet,
+            medicalHistory,
+          );
         }
       }
-      
+
       throw error;
     }
   }
@@ -1034,10 +1143,8 @@ Return ONLY the status word/phrase, nothing else.`;
   private getTintForReminder(text: string): string {
     const lower = text.toLowerCase();
     if (lower.includes('vaccin')) return '#10B981'; // green
-    if (lower.includes('medic') || lower.includes('pill'))
-      return '#3B82F6'; // blue
+    if (lower.includes('medic') || lower.includes('pill')) return '#3B82F6'; // blue
     if (lower.includes('appointment')) return '#EF4444'; // red
     return '#8B5CF6'; // purple
   }
 }
-

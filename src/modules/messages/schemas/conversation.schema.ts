@@ -52,4 +52,3 @@ ConversationSchema.pre('save', function (next) {
   }
   next();
 });
-

@@ -2,7 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { Notification, NotificationDocument } from './schemas/notification.schema';
+import {
+  Notification,
+  NotificationDocument,
+} from './schemas/notification.schema';
 
 @Injectable()
 export class NotificationsService {
@@ -11,10 +14,12 @@ export class NotificationsService {
     private readonly notificationModel: Model<NotificationDocument>,
   ) {}
 
-  async create(createNotificationDto: CreateNotificationDto): Promise<NotificationDocument> {
+  async create(
+    createNotificationDto: CreateNotificationDto,
+  ): Promise<NotificationDocument> {
     const notification = new this.notificationModel({
       recipient: new Types.ObjectId(createNotificationDto.recipientId),
-      sender: createNotificationDto.senderId 
+      sender: createNotificationDto.senderId
         ? new Types.ObjectId(createNotificationDto.senderId)
         : new Types.ObjectId(createNotificationDto.recipientId),
       type: createNotificationDto.type,
@@ -33,9 +38,12 @@ export class NotificationsService {
     return notification.save();
   }
 
-  async findAll(userId: string, unreadOnly: boolean = false): Promise<NotificationDocument[]> {
+  async findAll(
+    userId: string,
+    unreadOnly: boolean = false,
+  ): Promise<NotificationDocument[]> {
     const query: any = { recipient: new Types.ObjectId(userId) };
-    
+
     if (unreadOnly) {
       query.read = false;
     }
@@ -44,7 +52,10 @@ export class NotificationsService {
       .find(query)
       .populate([
         { path: 'sender', select: 'name email profileImage' },
-        { path: 'booking', populate: { path: 'owner provider', select: 'name email' } },
+        {
+          path: 'booking',
+          populate: { path: 'owner provider', select: 'name email' },
+        },
       ])
       .sort({ createdAt: -1 })
       .exec();
@@ -112,4 +123,3 @@ export class NotificationsService {
     await this.notificationModel.findByIdAndDelete(id).exec();
   }
 }
-

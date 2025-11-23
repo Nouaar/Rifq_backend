@@ -29,4 +29,3 @@ export class CreateNotificationDto {
   @IsOptional()
   metadata?: Record<string, any>;
 }
-

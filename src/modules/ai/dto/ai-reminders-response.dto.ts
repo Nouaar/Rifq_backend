@@ -2,10 +2,16 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ReminderItemDto {
-  @ApiProperty({ example: 'syringe.fill', description: 'Icon name for the reminder' })
+  @ApiProperty({
+    example: 'syringe.fill',
+    description: 'Icon name for the reminder',
+  })
   icon: string;
 
-  @ApiProperty({ example: 'Luna • Vaccination Booster', description: 'Title of the reminder' })
+  @ApiProperty({
+    example: 'Luna • Vaccination Booster',
+    description: 'Title of the reminder',
+  })
   title: string;
 
   @ApiProperty({
@@ -14,15 +20,23 @@ export class ReminderItemDto {
   })
   detail: string;
 
-  @ApiProperty({ example: '2024-12-01T10:00:00Z', description: 'Date and time for the reminder' })
+  @ApiProperty({
+    example: '2024-12-01T10:00:00Z',
+    description: 'Date and time for the reminder',
+  })
   date: string;
 
-  @ApiProperty({ example: '#FF6B6B', description: 'Color tint for the reminder' })
+  @ApiProperty({
+    example: '#FF6B6B',
+    description: 'Color tint for the reminder',
+  })
   tint: string;
 }
 
 export class AiRemindersResponseDto {
-  @ApiProperty({ type: [ReminderItemDto], description: 'List of reminders for the pet' })
+  @ApiProperty({
+    type: [ReminderItemDto],
+    description: 'List of reminders for the pet',
+  })
   reminders: ReminderItemDto[];
 }
-

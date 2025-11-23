@@ -47,4 +47,3 @@ export class PetSitter {
 }
 
 export const PetSitterSchema = SchemaFactory.createForClass(PetSitter);
-

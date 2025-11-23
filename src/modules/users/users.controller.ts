@@ -146,7 +146,8 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update FCM token',
-    description: 'Updates the Firebase Cloud Messaging token for push notifications',
+    description:
+      'Updates the Firebase Cloud Messaging token for push notifications',
   })
   async updateFcmToken(
     @CurrentUser() user: User,

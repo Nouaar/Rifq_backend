@@ -15,7 +15,12 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateConversationDto } from './dto/create-conversation.dto';
@@ -75,7 +80,8 @@ export class MessagesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Mark messages as read',
-    description: 'Marks all messages in a conversation as read for the current user',
+    description:
+      'Marks all messages in a conversation as read for the current user',
   })
   async markAsRead(@Param('id') id: string, @CurrentUser() user: User) {
     const userId = String(user._id ?? user.id);
@@ -97,14 +103,19 @@ export class MessagesController {
     @UploadedFile() audioFile?: Express.Multer.File,
   ) {
     const userId = String(user._id ?? user.id);
-    return this.messagesService.sendMessage(userId, createMessageDto, audioFile);
+    return this.messagesService.sendMessage(
+      userId,
+      createMessageDto,
+      audioFile,
+    );
   }
 
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update a message',
-    description: 'Updates the content of a message. Only the sender can update their own messages.',
+    description:
+      'Updates the content of a message. Only the sender can update their own messages.',
   })
   async updateMessage(
     @Param('id') id: string,
@@ -112,19 +123,21 @@ export class MessagesController {
     @Body() updateMessageDto: UpdateMessageDto,
   ) {
     const userId = String(user._id ?? user.id);
-    return this.messagesService.updateMessage(id, userId, updateMessageDto.content);
+    return this.messagesService.updateMessage(
+      id,
+      userId,
+      updateMessageDto.content,
+    );
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a message',
-    description: 'Soft deletes a message. Only the sender can delete their own messages.',
+    description:
+      'Soft deletes a message. Only the sender can delete their own messages.',
   })
-  async deleteMessage(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-  ) {
+  async deleteMessage(@Param('id') id: string, @CurrentUser() user: User) {
     const userId = String(user._id ?? user.id);
     return this.messagesService.deleteMessage(id, userId);
   }
@@ -133,14 +146,11 @@ export class MessagesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Delete a conversation',
-    description: 'Deletes a conversation. Only participants can delete their conversations.',
+    description:
+      'Deletes a conversation. Only participants can delete their conversations.',
   })
-  async deleteConversation(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-  ) {
+  async deleteConversation(@Param('id') id: string, @CurrentUser() user: User) {
     const userId = String(user._id ?? user.id);
     return this.messagesService.deleteConversation(id, userId);
   }
 }
-

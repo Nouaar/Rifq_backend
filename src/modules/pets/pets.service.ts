@@ -35,7 +35,7 @@ export class PetsService {
 
       // Handle photo upload - can be from file (multipart) or base64 string (JSON)
       let photoUrl: string | undefined;
-      
+
       if (file) {
         // Handle multipart file upload
         try {
@@ -109,7 +109,11 @@ export class PetsService {
     file?: any,
   ): Promise<Pet> {
     try {
-      const { medicalHistory, photo: photoBase64, ...petUpdates } = updatePetDto;
+      const {
+        medicalHistory,
+        photo: photoBase64,
+        ...petUpdates
+      } = updatePetDto;
 
       const pet = await this.petModel.findById(petId);
       if (!pet) throw new NotFoundException('Pet not found');

@@ -3,8 +3,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as path from 'path';
 
 @Injectable()
 export class FcmService implements OnModuleInit {
@@ -24,48 +22,18 @@ export class FcmService implements OnModuleInit {
         this.firebaseApp = admin.app();
         this.logger.log('Firebase Admin already initialized');
         return;
-      } catch (error) {
+      } catch {
         // Not initialized yet, continue
       }
 
-      // Initialize Firebase Admin SDK
-      // Option 1: Using service account JSON file (easiest for local development)
-      const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
-      
-      if (fs.existsSync(serviceAccountPath)) {
-        try {
-          const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf8');
-          const serviceAccount = JSON.parse(serviceAccountJson);
-          this.firebaseApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-          });
-          this.logger.log('Firebase Admin initialized with service account JSON file');
-          return;
-        } catch (error) {
-          this.logger.error('Failed to parse firebase-service-account.json file', error);
-        }
-      }
-      
-      // Option 2: Using service account JSON from environment variable (for production)
-      const serviceAccountJson = this.configService.get<string>('FIREBASE_SERVICE_ACCOUNT_JSON');
-      
-      if (serviceAccountJson) {
-        try {
-          const serviceAccount = JSON.parse(serviceAccountJson);
-          this.firebaseApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-          });
-          this.logger.log('Firebase Admin initialized with service account JSON from environment');
-          return;
-        } catch (error) {
-          this.logger.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON environment variable', error);
-        }
-      }
-
-      // Option 3: Using individual environment variables
+      // Only use individual environment variables
       const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
-      const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
-      const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
+      const privateKey = this.configService
+        .get<string>('FIREBASE_PRIVATE_KEY')
+        ?.replace(/\\n/g, '\n');
+      const clientEmail = this.configService.get<string>(
+        'FIREBASE_CLIENT_EMAIL',
+      );
 
       if (projectId && privateKey && clientEmail) {
         this.firebaseApp = admin.initializeApp({
@@ -75,18 +43,20 @@ export class FcmService implements OnModuleInit {
             clientEmail,
           }),
         });
-        this.logger.log('Firebase Admin initialized with environment variables');
+        this.logger.log(
+          'Firebase Admin initialized with environment variables',
+        );
         return;
       }
 
-      // Option 4: Using default credentials (for local development with gcloud CLI)
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-      this.logger.log('Firebase Admin initialized with default credentials');
+      throw new Error(
+        'Missing Firebase environment variables. Please set FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, and FIREBASE_CLIENT_EMAIL in your .env file.',
+      );
     } catch (error) {
       this.logger.error('Failed to initialize Firebase Admin SDK', error);
-      this.logger.warn('FCM notifications will not work until Firebase is properly configured');
+      this.logger.warn(
+        'FCM notifications will not work until Firebase is properly configured',
+      );
     }
   }
 
@@ -112,10 +82,13 @@ export class FcmService implements OnModuleInit {
           body,
         },
         data: data
-          ? Object.entries(data).reduce((acc, [key, value]) => {
-              acc[key] = String(value);
-              return acc;
-            }, {} as Record<string, string>)
+          ? Object.entries(data).reduce(
+              (acc, [key, value]) => {
+                acc[key] = String(value);
+                return acc;
+              },
+              {} as Record<string, string>,
+            )
           : undefined,
         apns: {
           payload: {
@@ -138,15 +111,22 @@ export class FcmService implements OnModuleInit {
       this.logger.log(`Successfully sent notification: ${response}`);
     } catch (error) {
       this.logger.error('Error sending FCM notification', error);
-      
+
       // Handle invalid token errors
-      if (error.code === 'messaging/invalid-registration-token' || 
-          error.code === 'messaging/registration-token-not-registered') {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        [
+          'messaging/invalid-registration-token',
+          'messaging/registration-token-not-registered',
+        ].includes((error as { code?: string }).code)
+      ) {
         this.logger.warn(`Invalid FCM token: ${fcmToken}`);
         // You might want to delete the token from the database here
         throw new Error('INVALID_TOKEN');
       }
-      
+
       throw error;
     }
   }
@@ -162,9 +142,10 @@ export class FcmService implements OnModuleInit {
     messageId: string,
   ): Promise<void> {
     const notificationTitle = senderName;
-    const notificationBody = messageContent.length > 100 
-      ? `${messageContent.substring(0, 100)}...` 
-      : messageContent;
+    const notificationBody =
+      messageContent.length > 100
+        ? `${messageContent.substring(0, 100)}...`
+        : messageContent;
 
     await this.sendNotification(fcmToken, notificationTitle, notificationBody, {
       type: 'message',
@@ -194,7 +175,9 @@ export class FcmService implements OnModuleInit {
     }
 
     // Remove duplicates and invalid tokens
-    const validTokens = [...new Set(fcmTokens)].filter(token => token && token.trim() !== '');
+    const validTokens = [...new Set(fcmTokens)].filter(
+      (token) => token && token.trim() !== '',
+    );
 
     if (validTokens.length === 0) {
       this.logger.warn('No valid FCM tokens provided');
@@ -209,10 +192,13 @@ export class FcmService implements OnModuleInit {
           body,
         },
         data: data
-          ? Object.entries(data).reduce((acc, [key, value]) => {
-              acc[key] = String(value);
-              return acc;
-            }, {} as Record<string, string>)
+          ? Object.entries(data).reduce(
+              (acc, [key, value]) => {
+                acc[key] = String(value);
+                return acc;
+              },
+              {} as Record<string, string>,
+            )
           : undefined,
         apns: {
           payload: {
@@ -232,15 +218,19 @@ export class FcmService implements OnModuleInit {
       };
 
       const response = await admin.messaging().sendEachForMulticast(message);
-      this.logger.log(`Successfully sent ${response.successCount} notifications, ${response.failureCount} failed`);
+      this.logger.log(
+        `Successfully sent ${response.successCount} notifications, ${response.failureCount} failed`,
+      );
 
       // Handle invalid tokens
       if (response.failureCount > 0) {
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {
             const token = validTokens[idx];
-            if (resp.error?.code === 'messaging/invalid-registration-token' ||
-                resp.error?.code === 'messaging/registration-token-not-registered') {
+            if (
+              resp.error?.code === 'messaging/invalid-registration-token' ||
+              resp.error?.code === 'messaging/registration-token-not-registered'
+            ) {
               this.logger.warn(`Invalid FCM token: ${token}`);
             }
           }
@@ -254,4 +244,3 @@ export class FcmService implements OnModuleInit {
     }
   }
 }
-

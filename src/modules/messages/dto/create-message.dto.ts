@@ -22,7 +22,8 @@ export class CreateMessageDto {
   content: string;
 
   @ApiPropertyOptional({
-    description: 'Optional conversation ID if continuing an existing conversation',
+    description:
+      'Optional conversation ID if continuing an existing conversation',
     example: '507f1f77bcf86cd799439012',
   })
   @IsString()
@@ -30,4 +31,3 @@ export class CreateMessageDto {
   @IsMongoId()
   conversationId?: string;
 }
-

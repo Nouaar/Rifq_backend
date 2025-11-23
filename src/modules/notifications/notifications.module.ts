@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
-import { Notification, NotificationSchema } from './schemas/notification.schema';
+import {
+  Notification,
+  NotificationSchema,
+} from './schemas/notification.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
 import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
 
@@ -19,4 +22,3 @@ import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
   exports: [NotificationsService],
 })
 export class NotificationsModule {}
-

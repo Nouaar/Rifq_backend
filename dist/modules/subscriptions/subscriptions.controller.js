@@ -28,7 +28,8 @@ let SubscriptionsController = class SubscriptionsController {
     constructor(subscriptionsService, configService) {
         this.subscriptionsService = subscriptionsService;
         this.configService = configService;
-        this.stripeWebhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET') || '';
+        this.stripeWebhookSecret =
+            this.configService.get('STRIPE_WEBHOOK_SECRET') || '';
     }
     async create(user, createSubscriptionDto) {
         return this.subscriptionsService.create(user._id.toString(), createSubscriptionDto);

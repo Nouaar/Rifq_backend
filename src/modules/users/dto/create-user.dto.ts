@@ -103,8 +103,6 @@ export class CreateUserDto {
   @IsString()
   profileImage?: string;
 
-  
-
   @IsOptional()
   @IsString()
   country?: string;

@@ -126,7 +126,7 @@ let GeminiService = GeminiService_1 = class GeminiService {
         return 'gemini-1.5-flash';
     }
     async makeApiRequest(prompt, options = {}) {
-        let { temperature = 0.7, maxTokens = 1000, maxRetries = 3, } = options;
+        let { temperature = 0.7, maxTokens = 1000, maxRetries = 3 } = options;
         const modelName = await this.getAvailableModel();
         const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
         const requestBody = {
@@ -162,7 +162,8 @@ let GeminiService = GeminiService_1 = class GeminiService {
                     this.logger.error(`Gemini API error: ${JSON.stringify(response.data.error)}`);
                     throw new Error(`Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`);
                 }
-                if (!response.data.candidates || response.data.candidates.length === 0) {
+                if (!response.data.candidates ||
+                    response.data.candidates.length === 0) {
                     this.logger.error(`❌ No candidates in response: ${JSON.stringify(response.data, null, 2)}`);
                     throw new Error('No candidates in Gemini API response');
                 }
@@ -179,7 +180,9 @@ let GeminiService = GeminiService_1 = class GeminiService {
                 const text = candidate.content?.parts?.[0]?.text;
                 if (candidate.finishReason && candidate.finishReason !== 'STOP') {
                     this.logger.warn(`⚠️ Finish reason: ${candidate.finishReason}`);
-                    if (candidate.finishReason === 'MAX_TOKENS' && (!text || text.trim().length === 0) && attempt < maxRetries - 1) {
+                    if (candidate.finishReason === 'MAX_TOKENS' &&
+                        (!text || text.trim().length === 0) &&
+                        attempt < maxRetries - 1) {
                         const thoughtsTokens = response.data.usageMetadata?.thoughtsTokenCount || 0;
                         const newMaxTokens = Math.min(Math.max(thoughtsTokens + 500, maxTokens * 2), 8000);
                         this.logger.log(`🔄 MAX_TOKENS hit with no output. Increasing maxOutputTokens from ${maxTokens} to ${newMaxTokens} for retry`);
@@ -194,7 +197,8 @@ let GeminiService = GeminiService_1 = class GeminiService {
                 if (!text || text.trim().length === 0) {
                     this.logger.error(`❌ Empty text in response`);
                     this.logger.error(`📥 Full response: ${JSON.stringify(response.data, null, 2)}`);
-                    if (candidate.finishReason === 'MAX_TOKENS' && attempt < maxRetries - 1) {
+                    if (candidate.finishReason === 'MAX_TOKENS' &&
+                        attempt < maxRetries - 1) {
                         const thoughtsTokens = response.data.usageMetadata?.thoughtsTokenCount || 0;
                         const newMaxTokens = Math.min(Math.max(thoughtsTokens + 500, maxTokens * 2), 8000);
                         this.logger.log(`🔄 Retrying with increased maxOutputTokens: ${maxTokens} -> ${newMaxTokens} (accounting for ${thoughtsTokens} thoughts tokens)`);
@@ -247,7 +251,8 @@ let GeminiService = GeminiService_1 = class GeminiService {
                                             }
                                         }
                                     }
-                                    else if (typeof retryDelay === 'object' && retryDelay.seconds) {
+                                    else if (typeof retryDelay === 'object' &&
+                                        retryDelay.seconds) {
                                         retryAfter = Math.ceil(retryDelay.seconds * 1000) + 2000;
                                     }
                                 }
@@ -273,7 +278,10 @@ let GeminiService = GeminiService_1 = class GeminiService {
                             throw new Error(`Rate limit exceeded. Please try again in ${Math.ceil(retryAfter / 1000)} seconds.`);
                         }
                     }
-                    else if (status && status >= 400 && status < 500 && status !== 429) {
+                    else if (status &&
+                        status >= 400 &&
+                        status < 500 &&
+                        status !== 429) {
                         throw lastError;
                     }
                 }

@@ -50,14 +50,22 @@ let SubscriptionsService = class SubscriptionsService {
         }
         const existingSubscription = await this.subscriptionModel.findOne({
             userId: user._id,
-            status: { $in: [subscription_schema_1.SubscriptionStatus.ACTIVE, subscription_schema_1.SubscriptionStatus.EXPIRES_SOON, subscription_schema_1.SubscriptionStatus.PENDING] },
+            status: {
+                $in: [
+                    subscription_schema_1.SubscriptionStatus.ACTIVE,
+                    subscription_schema_1.SubscriptionStatus.EXPIRES_SOON,
+                    subscription_schema_1.SubscriptionStatus.PENDING,
+                ],
+            },
         });
         if (existingSubscription) {
             throw new common_1.ConflictException('User already has an active or pending subscription');
         }
         const canceledOrExpiredSubscription = await this.subscriptionModel.findOne({
             userId: user._id,
-            status: { $in: [subscription_schema_1.SubscriptionStatus.CANCELED, subscription_schema_1.SubscriptionStatus.EXPIRED] },
+            status: {
+                $in: [subscription_schema_1.SubscriptionStatus.CANCELED, subscription_schema_1.SubscriptionStatus.EXPIRED],
+            },
         });
         const isTestMode = this.configService.get('NODE_ENV') !== 'production' ||
             !this.stripe;
@@ -154,13 +162,16 @@ let SubscriptionsService = class SubscriptionsService {
     }
     async findByUserId(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
-        const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+        const subscription = await this.subscriptionModel.findOne({
+            userId: userObjectId,
+        });
         if (!subscription) {
             return null;
         }
         const now = new Date();
         const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        if ((subscription.status === subscription_schema_1.SubscriptionStatus.ACTIVE || subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) &&
+        if ((subscription.status === subscription_schema_1.SubscriptionStatus.ACTIVE ||
+            subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) &&
             subscription.currentPeriodEnd &&
             new Date() > subscription.currentPeriodEnd) {
             subscription.status = subscription_schema_1.SubscriptionStatus.EXPIRED;
@@ -184,7 +195,9 @@ let SubscriptionsService = class SubscriptionsService {
     }
     async activate(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
-        const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+        const subscription = await this.subscriptionModel.findOne({
+            userId: userObjectId,
+        });
         if (!subscription) {
             console.log(`⚠️ Cannot activate: No subscription found for userId: ${userId}`);
             throw new common_1.NotFoundException('Subscription not found');
@@ -199,11 +212,14 @@ let SubscriptionsService = class SubscriptionsService {
     }
     async renew(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
-        const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+        const subscription = await this.subscriptionModel.findOne({
+            userId: userObjectId,
+        });
         if (!subscription) {
             throw new common_1.NotFoundException('Subscription not found');
         }
-        if (subscription.status !== subscription_schema_1.SubscriptionStatus.ACTIVE && subscription.status !== subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) {
+        if (subscription.status !== subscription_schema_1.SubscriptionStatus.ACTIVE &&
+            subscription.status !== subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) {
             throw new common_1.BadRequestException('Only active or expires soon subscriptions can be renewed');
         }
         const now = new Date();
@@ -233,11 +249,14 @@ let SubscriptionsService = class SubscriptionsService {
     }
     async cancel(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
-        const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+        const subscription = await this.subscriptionModel.findOne({
+            userId: userObjectId,
+        });
         if (!subscription) {
             throw new common_1.NotFoundException('Subscription not found');
         }
-        if (subscription.status !== subscription_schema_1.SubscriptionStatus.ACTIVE && subscription.status !== subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) {
+        if (subscription.status !== subscription_schema_1.SubscriptionStatus.ACTIVE &&
+            subscription.status !== subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) {
             throw new common_1.BadRequestException('Only active or expires soon subscriptions can be canceled');
         }
         if (subscription.stripeSubscriptionId && this.stripe) {
@@ -272,14 +291,19 @@ let SubscriptionsService = class SubscriptionsService {
     }
     async reactivate(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
-        const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+        const subscription = await this.subscriptionModel.findOne({
+            userId: userObjectId,
+        });
         if (!subscription) {
             throw new common_1.NotFoundException('Subscription not found');
         }
-        if ((subscription.status === subscription_schema_1.SubscriptionStatus.ACTIVE || subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) && !subscription.cancelAtPeriodEnd) {
+        if ((subscription.status === subscription_schema_1.SubscriptionStatus.ACTIVE ||
+            subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRES_SOON) &&
+            !subscription.cancelAtPeriodEnd) {
             return this.mapToResponseDto(subscription);
         }
-        if (subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRED || subscription.status === subscription_schema_1.SubscriptionStatus.CANCELED) {
+        if (subscription.status === subscription_schema_1.SubscriptionStatus.EXPIRED ||
+            subscription.status === subscription_schema_1.SubscriptionStatus.CANCELED) {
             throw new common_1.BadRequestException('Cannot reactivate expired or canceled subscription. Please create a new subscription.');
         }
         if (subscription.stripeSubscriptionId && this.stripe) {
@@ -355,7 +379,9 @@ let SubscriptionsService = class SubscriptionsService {
             case 'unpaid':
             case 'past_due':
                 subscription.status = subscription_schema_1.SubscriptionStatus.EXPIRED;
-                await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+                await this.userModel.findByIdAndUpdate(subscription.userId, {
+                    role: 'owner',
+                });
                 break;
         }
         await subscription.save();
@@ -369,18 +395,24 @@ let SubscriptionsService = class SubscriptionsService {
         }
         subscription.status = subscription_schema_1.SubscriptionStatus.EXPIRED;
         await subscription.save();
-        await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+        await this.userModel.findByIdAndUpdate(subscription.userId, {
+            role: 'owner',
+        });
     }
     async checkAndExpireSubscriptions() {
         const now = new Date();
         const expiredSubscriptions = await this.subscriptionModel.find({
-            status: { $in: [subscription_schema_1.SubscriptionStatus.ACTIVE, subscription_schema_1.SubscriptionStatus.EXPIRES_SOON] },
+            status: {
+                $in: [subscription_schema_1.SubscriptionStatus.ACTIVE, subscription_schema_1.SubscriptionStatus.EXPIRES_SOON],
+            },
             currentPeriodEnd: { $lt: now },
         });
         for (const subscription of expiredSubscriptions) {
             subscription.status = subscription_schema_1.SubscriptionStatus.EXPIRED;
             await subscription.save();
-            await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+            await this.userModel.findByIdAndUpdate(subscription.userId, {
+                role: 'owner',
+            });
         }
     }
     async checkAndCancelExpiredSubscriptions() {

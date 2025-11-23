@@ -1,4 +1,11 @@
-import { IsString, IsEnum, IsOptional, IsDateString, IsNumber, MinLength } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsNumber,
+  MinLength,
+} from 'class-validator';
 
 export class CreateBookingDto {
   @IsString()
@@ -30,4 +37,3 @@ export class CreateBookingDto {
   @IsOptional()
   price?: number;
 }
-

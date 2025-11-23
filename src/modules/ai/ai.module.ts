@@ -22,4 +22,3 @@ import {
   exports: [AiService],
 })
 export class AiModule {}
-

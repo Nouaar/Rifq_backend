@@ -13,4 +13,3 @@ export class UpdateBookingDto {
   @IsOptional()
   cancellationReason?: string;
 }
-

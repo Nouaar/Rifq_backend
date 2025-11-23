@@ -53,4 +53,3 @@ VeterinarianSchema.pre('save', function (next) {
   }
   next();
 });
-

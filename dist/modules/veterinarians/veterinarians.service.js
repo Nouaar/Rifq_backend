@@ -90,7 +90,10 @@ let VeterinariansService = class VeterinariansService {
         return createdUser;
     }
     async findAll() {
-        const veterinarians = await this.veterinarianModel.find().populate('user').exec();
+        const veterinarians = await this.veterinarianModel
+            .find()
+            .populate('user')
+            .exec();
         return veterinarians.map((vet) => {
             const user = vet.user;
             if (!user || !('_id' in user)) {
@@ -106,7 +109,10 @@ let VeterinariansService = class VeterinariansService {
         });
     }
     async findOne(id) {
-        const vet = await this.veterinarianModel.findOne({ user: id }).populate('user').exec();
+        const vet = await this.veterinarianModel
+            .findOne({ user: id })
+            .populate('user')
+            .exec();
         if (!vet) {
             throw new common_1.NotFoundException(`Veterinarian with ID ${id} not found`);
         }
@@ -127,7 +133,10 @@ let VeterinariansService = class VeterinariansService {
         if (!user || user.role !== 'vet') {
             return null;
         }
-        const vet = await this.veterinarianModel.findOne({ user: user._id }).populate('user').exec();
+        const vet = await this.veterinarianModel
+            .findOne({ user: user._id })
+            .populate('user')
+            .exec();
         if (!vet) {
             return null;
         }
@@ -161,14 +170,18 @@ let VeterinariansService = class VeterinariansService {
         if (!result) {
             throw new common_1.NotFoundException(`Veterinarian with ID ${id} not found`);
         }
-        await this.userModel.findByIdAndUpdate(id, { $set: { role: 'owner' } }).exec();
+        await this.userModel
+            .findByIdAndUpdate(id, { $set: { role: 'owner' } })
+            .exec();
     }
     async convertUserToVet(userId, vetData) {
         const user = await this.usersService.findOne(userId);
         if (!user) {
             throw new common_1.NotFoundException(`User with ID ${userId} not found`);
         }
-        let veterinarian = await this.veterinarianModel.findOne({ user: userId }).exec();
+        let veterinarian = await this.veterinarianModel
+            .findOne({ user: userId })
+            .exec();
         if (veterinarian) {
             veterinarian = await this.veterinarianModel
                 .findOneAndUpdate({ user: userId }, {
@@ -205,14 +218,16 @@ let VeterinariansService = class VeterinariansService {
             const user = await this.usersService.findOne(userId);
             const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
             const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-            await this.userModel.findByIdAndUpdate(userId, {
+            await this.userModel
+                .findByIdAndUpdate(userId, {
                 $set: {
                     role: 'vet',
                     isVerified: false,
                     verificationCode,
                     verificationCodeExpires,
                 },
-            }).exec();
+            })
+                .exec();
             console.log(`[Vet Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
             try {
                 await this.mailService.sendVerificationCode(user.email, verificationCode);

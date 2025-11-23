@@ -34,11 +34,17 @@ __decorate([
     __metadata("design:type", String)
 ], AiStatusResponseDto.prototype, "status", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: [StatusPillDto], description: 'Status pills to display' }),
+    (0, swagger_1.ApiProperty)({
+        type: [StatusPillDto],
+        description: 'Status pills to display',
+    }),
     __metadata("design:type", Array)
 ], AiStatusResponseDto.prototype, "pills", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '✓ Up-to-date | 2 med | 30 kg', description: 'Summary text' }),
+    (0, swagger_1.ApiProperty)({
+        example: '✓ Up-to-date | 2 med | 30 kg',
+        description: 'Summary text',
+    }),
     __metadata("design:type", String)
 ], AiStatusResponseDto.prototype, "summary", void 0);
 //# sourceMappingURL=ai-status-response.dto.js.map

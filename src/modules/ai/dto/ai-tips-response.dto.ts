@@ -9,7 +9,8 @@ export class TipItemDto {
   title: string;
 
   @ApiProperty({
-    example: 'Rotate crunchy vegetables with high-protein treats to keep meals balanced.',
+    example:
+      'Rotate crunchy vegetables with high-protein treats to keep meals balanced.',
     description: 'Detail description of the tip',
   })
   detail: string;
@@ -19,4 +20,3 @@ export class AiTipsResponseDto {
   @ApiProperty({ type: [TipItemDto], description: 'List of tips for the pet' })
   tips: TipItemDto[];
 }
-

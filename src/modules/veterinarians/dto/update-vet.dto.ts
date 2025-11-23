@@ -54,4 +54,3 @@ export class UpdateVetDto {
   @IsString()
   bio?: string;
 }
-

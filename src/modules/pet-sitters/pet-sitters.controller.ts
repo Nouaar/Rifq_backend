@@ -71,4 +71,3 @@ export class PetSittersController {
     return this.petSittersService.convertUserToSitter(userId, sitterData);
   }
 }
-

@@ -47,8 +47,6 @@ exports.FcmService = void 0;
 const common_1 = require("@nestjs/common");
 const admin = __importStar(require("firebase-admin"));
 const config_1 = require("@nestjs/config");
-const fs = __importStar(require("fs"));
-const path = __importStar(require("path"));
 let FcmService = FcmService_1 = class FcmService {
     constructor(configService) {
         this.configService = configService;
@@ -64,39 +62,12 @@ let FcmService = FcmService_1 = class FcmService {
                 this.logger.log('Firebase Admin already initialized');
                 return;
             }
-            catch (error) {
-            }
-            const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
-            if (fs.existsSync(serviceAccountPath)) {
-                try {
-                    const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf8');
-                    const serviceAccount = JSON.parse(serviceAccountJson);
-                    this.firebaseApp = admin.initializeApp({
-                        credential: admin.credential.cert(serviceAccount),
-                    });
-                    this.logger.log('Firebase Admin initialized with service account JSON file');
-                    return;
-                }
-                catch (error) {
-                    this.logger.error('Failed to parse firebase-service-account.json file', error);
-                }
-            }
-            const serviceAccountJson = this.configService.get('FIREBASE_SERVICE_ACCOUNT_JSON');
-            if (serviceAccountJson) {
-                try {
-                    const serviceAccount = JSON.parse(serviceAccountJson);
-                    this.firebaseApp = admin.initializeApp({
-                        credential: admin.credential.cert(serviceAccount),
-                    });
-                    this.logger.log('Firebase Admin initialized with service account JSON from environment');
-                    return;
-                }
-                catch (error) {
-                    this.logger.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON environment variable', error);
-                }
+            catch {
             }
             const projectId = this.configService.get('FIREBASE_PROJECT_ID');
-            const privateKey = this.configService.get('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+            const privateKey = this.configService
+                .get('FIREBASE_PRIVATE_KEY')
+                ?.replace(/\\n/g, '\n');
             const clientEmail = this.configService.get('FIREBASE_CLIENT_EMAIL');
             if (projectId && privateKey && clientEmail) {
                 this.firebaseApp = admin.initializeApp({
@@ -109,10 +80,7 @@ let FcmService = FcmService_1 = class FcmService {
                 this.logger.log('Firebase Admin initialized with environment variables');
                 return;
             }
-            this.firebaseApp = admin.initializeApp({
-                credential: admin.credential.applicationDefault(),
-            });
-            this.logger.log('Firebase Admin initialized with default credentials');
+            throw new Error('Missing Firebase environment variables. Please set FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, and FIREBASE_CLIENT_EMAIL in your .env file.');
         }
         catch (error) {
             this.logger.error('Failed to initialize Firebase Admin SDK', error);
@@ -158,8 +126,13 @@ let FcmService = FcmService_1 = class FcmService {
         }
         catch (error) {
             this.logger.error('Error sending FCM notification', error);
-            if (error.code === 'messaging/invalid-registration-token' ||
-                error.code === 'messaging/registration-token-not-registered') {
+            if (typeof error === 'object' &&
+                error !== null &&
+                'code' in error &&
+                [
+                    'messaging/invalid-registration-token',
+                    'messaging/registration-token-not-registered',
+                ].includes(error.code)) {
                 this.logger.warn(`Invalid FCM token: ${fcmToken}`);
                 throw new Error('INVALID_TOKEN');
             }
@@ -187,7 +160,7 @@ let FcmService = FcmService_1 = class FcmService {
             this.logger.warn('No FCM tokens provided');
             return null;
         }
-        const validTokens = [...new Set(fcmTokens)].filter(token => token && token.trim() !== '');
+        const validTokens = [...new Set(fcmTokens)].filter((token) => token && token.trim() !== '');
         if (validTokens.length === 0) {
             this.logger.warn('No valid FCM tokens provided');
             return null;

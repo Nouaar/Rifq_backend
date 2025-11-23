@@ -148,13 +148,12 @@ export class UsersService {
     return matches ? matches[1] : null;
   }
 
-  async updateFcmToken(userId: string, fcmToken: string | null): Promise<UserDocument> {
+  async updateFcmToken(
+    userId: string,
+    fcmToken: string | null,
+  ): Promise<UserDocument> {
     const user = await this.userModel
-      .findByIdAndUpdate(
-        userId,
-        { fcmToken },
-        { new: true },
-      )
+      .findByIdAndUpdate(userId, { fcmToken }, { new: true })
       .exec();
 
     if (!user) throw new NotFoundException('User not found');
@@ -162,7 +161,10 @@ export class UsersService {
   }
 
   async getFcmToken(userId: string): Promise<string | null> {
-    const user = await this.userModel.findById(userId).select('fcmToken').exec();
+    const user = await this.userModel
+      .findById(userId)
+      .select('fcmToken')
+      .exec();
     return user?.fcmToken || null;
   }
 }

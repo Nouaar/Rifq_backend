@@ -13,4 +13,3 @@ export class CreateConversationDto {
   @IsMongoId()
   participantId: string;
 }
-

@@ -15,7 +15,10 @@ class RecommendationItemDto {
 }
 exports.RecommendationItemDto = RecommendationItemDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'Vaccination Schedule', description: 'Title of the recommendation' }),
+    (0, swagger_1.ApiProperty)({
+        example: 'Vaccination Schedule',
+        description: 'Title of the recommendation',
+    }),
     __metadata("design:type", String)
 ], RecommendationItemDto.prototype, "title", void 0);
 __decorate([
@@ -26,18 +29,28 @@ __decorate([
     __metadata("design:type", String)
 ], RecommendationItemDto.prototype, "detail", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'vaccination', description: 'Type of recommendation' }),
+    (0, swagger_1.ApiProperty)({
+        example: 'vaccination',
+        description: 'Type of recommendation',
+    }),
     __metadata("design:type", String)
 ], RecommendationItemDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '2024-12-01', description: 'Suggested date (optional)', required: false }),
+    (0, swagger_1.ApiProperty)({
+        example: '2024-12-01',
+        description: 'Suggested date (optional)',
+        required: false,
+    }),
     __metadata("design:type", String)
 ], RecommendationItemDto.prototype, "suggestedDate", void 0);
 class AiRecommendationsResponseDto {
 }
 exports.AiRecommendationsResponseDto = AiRecommendationsResponseDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ type: [RecommendationItemDto], description: 'List of recommendations for the pet' }),
+    (0, swagger_1.ApiProperty)({
+        type: [RecommendationItemDto],
+        description: 'List of recommendations for the pet',
+    }),
     __metadata("design:type", Array)
 ], AiRecommendationsResponseDto.prototype, "recommendations", void 0);
 //# sourceMappingURL=ai-recommendations-response.dto.js.map

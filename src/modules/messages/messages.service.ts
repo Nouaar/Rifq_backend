@@ -65,7 +65,7 @@ export class MessagesService {
         populate: { path: 'sender', select: 'name email' },
       })
       .exec();
-    
+
     // Filter to ensure it's a 2-participant conversation
     if (conversation && conversation.participants.length !== 2) {
       conversation = null;
@@ -76,12 +76,12 @@ export class MessagesService {
       conversation = new this.conversationModel({
         participants,
       });
-      
+
       // Initialize unread counts map
       conversation.unreadCounts = new Map();
       conversation.unreadCounts.set(String(userId), 0);
       conversation.unreadCounts.set(String(participantId), 0);
-      
+
       await conversation.save();
 
       // Populate after save
@@ -116,7 +116,7 @@ export class MessagesService {
       formattedConv.unreadCount = unreadCount;
       // Also ensure participants array is properly formatted
       return formattedConv as ConversationDocument;
-    }) as ConversationDocument[];
+    });
   }
 
   /**
@@ -132,9 +132,7 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    const participantIds = conversation.participants.map((p) =>
-      String(p),
-    ) as string[];
+    const participantIds = conversation.participants.map((p) => String(p));
     if (!participantIds.includes(userId)) {
       throw new ForbiddenException(
         'You are not a participant in this conversation',
@@ -148,7 +146,7 @@ export class MessagesService {
     } catch (error) {
       throw new BadRequestException('Invalid conversation ID format');
     }
-    
+
     const messages = await this.messageModel
       .find({ conversation: conversationObjectId })
       .populate('sender', 'name email profileImage')
@@ -190,9 +188,7 @@ export class MessagesService {
       }
 
       // Verify user is a participant
-      const participantIds = conversation.participants.map((p) =>
-        String(p),
-      ) as string[];
+      const participantIds = conversation.participants.map((p) => String(p));
       if (!participantIds.includes(userId)) {
         throw new ForbiddenException(
           'You are not a participant in this conversation',
@@ -242,7 +238,8 @@ export class MessagesService {
     if (!conversation.unreadCounts) {
       conversation.unreadCounts = new Map();
     }
-    const currentUnread = conversation.unreadCounts.get?.(String(recipientId)) || 0;
+    const currentUnread =
+      conversation.unreadCounts.get?.(String(recipientId)) || 0;
     conversation.unreadCounts.set(String(recipientId), currentUnread + 1);
 
     // Reset unread count for sender (they saw their own message)
@@ -258,11 +255,17 @@ export class MessagesService {
 
     // Send FCM notification to recipient if they have an FCM token
     try {
-      const recipient = await this.userModel.findById(recipientId).select('fcmToken name').exec();
+      const recipient = await this.userModel
+        .findById(recipientId)
+        .select('fcmToken name')
+        .exec();
       if (recipient?.fcmToken) {
-        const sender = await this.userModel.findById(userId).select('name').exec();
+        const sender = await this.userModel
+          .findById(userId)
+          .select('name')
+          .exec();
         const senderName = sender?.name || 'Someone';
-        
+
         // Send notification asynchronously (don't wait for it)
         this.fcmService
           .sendMessageNotification(
@@ -298,9 +301,7 @@ export class MessagesService {
       throw new NotFoundException('Conversation not found');
     }
 
-    const participantIds = conversation.participants.map((p) =>
-      String(p),
-    ) as string[];
+    const participantIds = conversation.participants.map((p) => String(p));
     if (!participantIds.includes(userId)) {
       throw new ForbiddenException(
         'You are not a participant in this conversation',
@@ -314,7 +315,7 @@ export class MessagesService {
     } catch (error) {
       throw new BadRequestException('Invalid conversation ID format');
     }
-    
+
     // Mark all messages sent to this user as read
     await this.messageModel
       .updateMany(
@@ -358,9 +359,7 @@ export class MessagesService {
 
     // Verify user is the sender
     if (String(message.sender) !== userId) {
-      throw new ForbiddenException(
-        'You can only edit your own messages',
-      );
+      throw new ForbiddenException('You can only edit your own messages');
     }
 
     // Verify message is not deleted
@@ -397,9 +396,7 @@ export class MessagesService {
 
     // Verify user is the sender
     if (String(message.sender) !== userId) {
-      throw new ForbiddenException(
-        'You can only delete your own messages',
-      );
+      throw new ForbiddenException('You can only delete your own messages');
     }
 
     // Soft delete - mark as deleted instead of removing
@@ -430,9 +427,7 @@ export class MessagesService {
     }
 
     // Verify user is a participant
-    const participantIds = conversation.participants.map((p) =>
-      String(p),
-    ) as string[];
+    const participantIds = conversation.participants.map((p) => String(p));
     if (!participantIds.includes(userId)) {
       throw new ForbiddenException(
         'You are not a participant in this conversation',
@@ -448,4 +443,3 @@ export class MessagesService {
     await this.conversationModel.findByIdAndDelete(conversationId);
   }
 }
-

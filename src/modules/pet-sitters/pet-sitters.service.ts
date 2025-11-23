@@ -1,6 +1,10 @@
 // src/modules/pet-sitters/pet-sitters.service.ts
 
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateSitterDto } from './dto/create-sitter.dto';
@@ -24,7 +28,9 @@ export class PetSittersService {
 
   async create(createSitterDto: CreateSitterDto): Promise<UserDocument> {
     // Check if user with email already exists
-    const existingUser = await this.usersService.findByEmail(createSitterDto.email);
+    const existingUser = await this.usersService.findByEmail(
+      createSitterDto.email,
+    );
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -45,7 +51,10 @@ export class PetSittersService {
 
     // Convert availability strings to Date objects if provided
     let availabilityDates: Date[] | undefined;
-    if (createSitterDto.availability && Array.isArray(createSitterDto.availability)) {
+    if (
+      createSitterDto.availability &&
+      Array.isArray(createSitterDto.availability)
+    ) {
       availabilityDates = createSitterDto.availability.map((date: any) => {
         if (typeof date === 'string') {
           return new Date(date);
@@ -93,7 +102,10 @@ export class PetSittersService {
   }
 
   async findOne(id: string): Promise<UserDocument> {
-    const sitter = await this.petSitterModel.findOne({ user: id }).populate('user').exec();
+    const sitter = await this.petSitterModel
+      .findOne({ user: id })
+      .populate('user')
+      .exec();
     if (!sitter) {
       throw new NotFoundException(`Pet sitter with ID ${id} not found`);
     }
@@ -116,7 +128,10 @@ export class PetSittersService {
     if (!user || user.role !== 'sitter') {
       return null;
     }
-    const sitter = await this.petSitterModel.findOne({ user: user._id }).populate('user').exec();
+    const sitter = await this.petSitterModel
+      .findOne({ user: user._id })
+      .populate('user')
+      .exec();
     if (!sitter) {
       return null;
     }
@@ -130,23 +145,24 @@ export class PetSittersService {
   ): Promise<UserDocument> {
     // Map sitterAddress to sitterAddress in update data
     const updateData: any = { ...updateSitterDto };
-    
+
     // Convert availability strings to Date objects if provided
-    if (updateSitterDto.availability && Array.isArray(updateSitterDto.availability)) {
-      updateData.availability = updateSitterDto.availability.map((date: any) => {
-        if (typeof date === 'string') {
-          return new Date(date);
-        }
-        return date instanceof Date ? date : new Date(date);
-      });
+    if (
+      updateSitterDto.availability &&
+      Array.isArray(updateSitterDto.availability)
+    ) {
+      updateData.availability = updateSitterDto.availability.map(
+        (date: any) => {
+          if (typeof date === 'string') {
+            return new Date(date);
+          }
+          return date instanceof Date ? date : new Date(date);
+        },
+      );
     }
 
     const sitter = await this.petSitterModel
-      .findOneAndUpdate(
-        { user: id },
-        { $set: updateData },
-        { new: true },
-      )
+      .findOneAndUpdate({ user: id }, { $set: updateData }, { new: true })
       .populate('user')
       .exec();
 
@@ -177,7 +193,9 @@ export class PetSittersService {
     }
 
     // Also update user role back to 'owner'
-    await this.userModel.findByIdAndUpdate(id, { $set: { role: 'owner' } }).exec();
+    await this.userModel
+      .findByIdAndUpdate(id, { $set: { role: 'owner' } })
+      .exec();
   }
 
   // Convert existing user to pet sitter (when they complete the join form)
@@ -241,7 +259,7 @@ export class PetSittersService {
 
       // Update user role to 'sitter' and always generate/send verification code
       const user = await this.usersService.findOne(userId);
-      
+
       // Always generate a new verification code and send email when converting to sitter
       // This ensures the user verifies their email after role change
       const verificationCode = Math.floor(
@@ -249,33 +267,47 @@ export class PetSittersService {
       ).toString();
       const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
 
-      await this.userModel.findByIdAndUpdate(userId, {
-        $set: {
-          role: 'sitter',
-          isVerified: false, // Require re-verification after role change
-          verificationCode,
-          verificationCodeExpires,
-        },
-      }).exec();
+      await this.userModel
+        .findByIdAndUpdate(userId, {
+          $set: {
+            role: 'sitter',
+            isVerified: false, // Require re-verification after role change
+            verificationCode,
+            verificationCodeExpires,
+          },
+        })
+        .exec();
 
       // Send verification email (best effort - don't block conversion)
-      console.log(`[Sitter Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
+      console.log(
+        `[Sitter Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`,
+      );
       try {
-        await this.mailService.sendVerificationCode(user.email, verificationCode);
-        console.log(`[Sitter Conversion] Verification email sent successfully to ${user.email}`);
+        await this.mailService.sendVerificationCode(
+          user.email,
+          verificationCode,
+        );
+        console.log(
+          `[Sitter Conversion] Verification email sent successfully to ${user.email}`,
+        );
       } catch (err: unknown) {
         if (err instanceof Error) {
-          console.error('Failed to send verification email during sitter conversion:', err.message);
+          console.error(
+            'Failed to send verification email during sitter conversion:',
+            err.message,
+          );
           console.error('Error stack:', err.stack);
         } else {
-          console.error('Failed to send verification email during sitter conversion (unknown error):', err);
+          console.error(
+            'Failed to send verification email during sitter conversion (unknown error):',
+            err,
+          );
         }
       }
     }
 
     // Return the user with updated role
     const updatedUser = await this.usersService.findOne(userId);
-    return updatedUser!;
+    return updatedUser;
   }
 }
-

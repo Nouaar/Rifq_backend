@@ -40,4 +40,3 @@ export const NotificationSchema = SchemaFactory.createForClass(Notification);
 
 // Index for efficient querying of unread notifications
 NotificationSchema.index({ recipient: 1, read: 1 });
-

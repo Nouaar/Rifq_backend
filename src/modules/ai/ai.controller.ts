@@ -51,24 +51,32 @@ export class AiController {
         );
       }
       // Handle daily quota exhaustion - different from rate limits
-      if (error instanceof Error && error.message.includes('AI_DAILY_QUOTA_EXCEEDED')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('AI_DAILY_QUOTA_EXCEEDED')
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-            message: 'AI daily quota exceeded. Please try again tomorrow or contact support.',
+            message:
+              'AI daily quota exceeded. Please try again tomorrow or contact support.',
             code: 'AI_DAILY_QUOTA_EXCEEDED',
             retryAfter: 86400, // 24 hours
           },
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
-      
+
       // Handle rate limit errors (per-minute throttling)
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-            message: 'AI service is rate limited. Please try again in a minute.',
+            message:
+              'AI service is rate limited. Please try again in a minute.',
             code: 'AI_RATE_LIMITED',
             retryAfter: 60,
           },
@@ -102,11 +110,15 @@ export class AiController {
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-            message: 'AI service is rate limited. Please try again in a minute.',
+            message:
+              'AI service is rate limited. Please try again in a minute.',
             retryAfter: 60,
           },
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -139,11 +151,15 @@ export class AiController {
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-            message: 'AI service is rate limited. Please try again in a minute.',
+            message:
+              'AI service is rate limited. Please try again in a minute.',
             retryAfter: 60,
           },
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -174,11 +190,15 @@ export class AiController {
           HttpStatus.SERVICE_UNAVAILABLE,
         );
       }
-      if (error instanceof Error && (error.message.includes('Rate limit') || error.message.includes('429'))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes('Rate limit') || error.message.includes('429'))
+      ) {
         throw new HttpException(
           {
             statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-            message: 'AI service is rate limited. Please try again in a minute.',
+            message:
+              'AI service is rate limited. Please try again in a minute.',
             retryAfter: 60,
           },
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -188,4 +208,3 @@ export class AiController {
     }
   }
 }
-
