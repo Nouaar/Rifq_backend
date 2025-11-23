@@ -187,7 +187,7 @@ let VeterinariansService = class VeterinariansService {
                 .exec();
         }
         else {
-            const vetRecord = new this.veterinarianModel({
+            const vetRecordData = {
                 user: userId,
                 licenseNumber: vetData.licenseNumber,
                 clinicName: vetData.clinicName,
@@ -197,7 +197,9 @@ let VeterinariansService = class VeterinariansService {
                 latitude: vetData.latitude,
                 longitude: vetData.longitude,
                 bio: vetData.bio,
-            });
+            };
+            delete vetRecordData.email;
+            const vetRecord = new this.veterinarianModel(vetRecordData);
             veterinarian = await vetRecord.save();
             await veterinarian.populate('user');
             const user = await this.usersService.findOne(userId);

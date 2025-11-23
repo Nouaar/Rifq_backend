@@ -5,7 +5,7 @@ import { Document, Types } from 'mongoose';
 
 export type VeterinarianDocument = Veterinarian & Document;
 
-@Schema({ timestamps: true, collection: 'veterinarians' })
+@Schema({ timestamps: true, collection: 'veterinarians', strict: true })
 export class Veterinarian {
   _id: Types.ObjectId;
 
@@ -41,4 +41,16 @@ export class Veterinarian {
 }
 
 export const VeterinarianSchema = SchemaFactory.createForClass(Veterinarian);
+
+// Explicitly ensure only the user field has a unique index
+// Note: The user field already has unique: true in @Prop decorator above
+
+// Prevent email field from being added (in case of old data or migration issues)
+VeterinarianSchema.pre('save', function (next) {
+  // Remove email field if it somehow got added
+  if (this.isNew && (this as any).email !== undefined) {
+    delete (this as any).email;
+  }
+  next();
+});
 

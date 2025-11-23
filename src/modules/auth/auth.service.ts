@@ -16,6 +16,7 @@ import { ChangeEmailDto } from './dto/change-email.dto';
 import { VerifyNewEmailDto } from './dto/verify-new-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import * as bcrypt from 'bcryptjs';
 
 import { jwtVerify, createRemoteJWKSet } from 'jose';
@@ -41,6 +42,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {
     // Fail fast if missing
     this.accessSecret =
@@ -165,6 +167,17 @@ export class AuthService {
       verificationCodeExpires: undefined,
     } as Partial<CreateUserDto>);
 
+    // Activate subscription if user has a pending subscription
+    try {
+      const subscription = await this.subscriptionsService.findByUserId(String(user._id));
+      if (subscription && subscription.status === 'pending') {
+        await this.subscriptionsService.activate(String(user._id));
+      }
+    } catch (error) {
+      // Log error but don't fail email verification if subscription activation fails
+      console.error('Failed to activate subscription after email verification:', error);
+    }
+
     return { message: 'Email verified successfully' };
   }
 
@@ -271,9 +284,18 @@ export class AuthService {
     return { message: 'New verification code sent to your email' };
   }
 
-  async getProfile(userId: string): Promise<Partial<UserDocument>> {
+  async getProfile(userId: string): Promise<Partial<UserDocument> & { subscription?: any }> {
     const user = await this.usersService.findById(userId);
     if (!user) throw new NotFoundException('User not found');
+
+    // Get subscription if exists
+    let subscription = null;
+    try {
+      subscription = await this.subscriptionsService.findByUserId(userId);
+    } catch (error) {
+      // Subscription not found or error - continue without it
+      console.error('Error fetching subscription:', error);
+    }
 
     // remove sensitive fields
     const safe = {
@@ -284,7 +306,13 @@ export class AuthService {
       isVerified: user.isVerified,
       pets: user.pets,
       profileImage: user.profileImage,
-    } as Partial<UserDocument>;
+      phone: user.phoneNumber,
+      country: user.country,
+      city: user.city,
+      latitude: user.latitude,
+      longitude: user.longitude,
+      subscription: subscription || undefined,
+    } as Partial<UserDocument> & { subscription?: any };
 
     return safe;
   }

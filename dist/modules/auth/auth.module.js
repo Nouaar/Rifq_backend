@@ -16,12 +16,13 @@ const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const jwt_refresh_strategy_1 = require("./strategies/jwt-refresh.strategy");
 const mail_module_1 = require("../mail/mail.module");
 const config_1 = require("@nestjs/config");
+const subscriptions_module_1 = require("../subscriptions/subscriptions.module");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, jwt_1.JwtModule.register({}), mail_module_1.MailModule, config_1.ConfigModule],
+        imports: [users_module_1.UsersModule, jwt_1.JwtModule.register({}), mail_module_1.MailModule, config_1.ConfigModule, subscriptions_module_1.SubscriptionsModule],
         controllers: [auth_controller_1.AuthController],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy, jwt_refresh_strategy_1.JwtRefreshStrategy],
     })

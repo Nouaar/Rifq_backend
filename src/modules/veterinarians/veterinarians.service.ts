@@ -190,7 +190,8 @@ export class VeterinariansService {
         .exec();
     } else {
       // Create new veterinarian record in veterinarians collection
-      const vetRecord = new this.veterinarianModel({
+      // Explicitly exclude email field to prevent any issues
+      const vetRecordData: any = {
         user: userId,
         licenseNumber: vetData.licenseNumber,
         clinicName: vetData.clinicName,
@@ -200,7 +201,12 @@ export class VeterinariansService {
         latitude: vetData.latitude,
         longitude: vetData.longitude,
         bio: vetData.bio,
-      });
+      };
+      
+      // Ensure email is not included
+      delete vetRecordData.email;
+      
+      const vetRecord = new this.veterinarianModel(vetRecordData);
 
       veterinarian = await vetRecord.save();
       await veterinarian.populate('user');

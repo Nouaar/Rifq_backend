@@ -9,6 +9,7 @@ import { ChangeEmailDto } from './dto/change-email.dto';
 import { VerifyNewEmailDto } from './dto/verify-new-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 export interface Tokens {
     accessToken: string;
     refreshToken: string;
@@ -18,12 +19,13 @@ export declare class AuthService {
     private readonly jwtService;
     private readonly configService;
     private readonly mailService;
+    private readonly subscriptionsService;
     private readonly accessSecret;
     private readonly refreshSecret;
     private readonly accessExpiresIn;
     private readonly refreshExpiresIn;
     private jwks;
-    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, mailService: MailService);
+    constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, mailService: MailService, subscriptionsService: SubscriptionsService);
     private hashToken;
     private compareToken;
     private createAccessSignOptions;
@@ -46,7 +48,9 @@ export declare class AuthService {
     resendVerificationCode(email: string): Promise<{
         message: string;
     }>;
-    getProfile(userId: string): Promise<Partial<UserDocument>>;
+    getProfile(userId: string): Promise<Partial<UserDocument> & {
+        subscription?: any;
+    }>;
     checkEmailExists(email: string): Promise<UserDocument | null>;
     forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{
         message: string;

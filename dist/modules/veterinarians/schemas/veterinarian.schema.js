@@ -52,7 +52,13 @@ __decorate([
     __metadata("design:type", String)
 ], Veterinarian.prototype, "bio", void 0);
 exports.Veterinarian = Veterinarian = __decorate([
-    (0, mongoose_1.Schema)({ timestamps: true, collection: 'veterinarians' })
+    (0, mongoose_1.Schema)({ timestamps: true, collection: 'veterinarians', strict: true })
 ], Veterinarian);
 exports.VeterinarianSchema = mongoose_1.SchemaFactory.createForClass(Veterinarian);
+exports.VeterinarianSchema.pre('save', function (next) {
+    if (this.isNew && this.email !== undefined) {
+        delete this.email;
+    }
+    next();
+});
 //# sourceMappingURL=veterinarian.schema.js.map

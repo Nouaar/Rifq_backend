@@ -1,0 +1,606 @@
+// src/modules/subscriptions/subscriptions.service.ts
+
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
+import Stripe from 'stripe';
+import { Subscription, SubscriptionDocument, SubscriptionStatus } from './schemas/subscription.schema';
+import { User, UserDocument } from '../users/schemas/user.schema';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { SubscriptionResponseDto, CreateSubscriptionResponseDto, CancelSubscriptionResponseDto } from './dto/subscription-response.dto';
+import { VeterinariansService } from '../veterinarians/veterinarians.service';
+import { PetSittersService } from '../pet-sitters/pet-sitters.service';
+
+@Injectable()
+export class SubscriptionsService {
+  private stripe: Stripe;
+  private readonly subscriptionPriceId: string;
+
+  constructor(
+    @InjectModel(Subscription.name)
+    private readonly subscriptionModel: Model<SubscriptionDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
+    private readonly configService: ConfigService,
+    private readonly veterinariansService: VeterinariansService,
+    private readonly petSittersService: PetSittersService,
+  ) {
+    // Initialize Stripe
+    const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
+    if (!stripeSecretKey) {
+      console.warn('⚠️ STRIPE_SECRET_KEY not found. Stripe features will be disabled.');
+    } else {
+      this.stripe = new Stripe(stripeSecretKey, {
+        apiVersion: '2025-11-17.clover',
+      });
+    }
+
+    // Get subscription price ID from config (or use default test price)
+    this.subscriptionPriceId = this.configService.get<string>(
+      'STRIPE_SUBSCRIPTION_PRICE_ID',
+      'price_test_monthly_30', // Default test price ID
+    );
+  }
+
+  /**
+   * Create a new subscription for a user
+   */
+  async create(
+    userId: string,
+    createSubscriptionDto: CreateSubscriptionDto,
+  ): Promise<CreateSubscriptionResponseDto> {
+    // Check if user exists
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user already has an active, expires_soon, or pending subscription
+    const existingSubscription = await this.subscriptionModel.findOne({
+      userId: user._id,
+      status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRES_SOON, SubscriptionStatus.PENDING] },
+    });
+
+    if (existingSubscription) {
+      throw new ConflictException('User already has an active or pending subscription');
+    }
+
+    // Check if user has a canceled or expired subscription - we'll reuse it
+    const canceledOrExpiredSubscription = await this.subscriptionModel.findOne({
+      userId: user._id,
+      status: { $in: [SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED] },
+    });
+
+    // In test mode, create subscription without Stripe (for development)
+    const isTestMode = this.configService.get<string>('NODE_ENV') !== 'production' ||
+                       !this.stripe;
+
+    let stripeSubscriptionId: string | undefined;
+    let stripeCustomerId: string | undefined;
+    let clientSecret: string | undefined;
+    let currentPeriodStart: Date;
+    let currentPeriodEnd: Date;
+
+    if (isTestMode || !this.stripe) {
+      // Test mode: Create subscription without Stripe
+      currentPeriodStart = new Date();
+      currentPeriodEnd = new Date();
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // 1 month from now
+    } else {
+      // Production: Create Stripe customer and subscription
+      try {
+        // Create or retrieve Stripe customer
+        let customer: Stripe.Customer;
+        if (user.email) {
+          const existingCustomers = await this.stripe.customers.list({
+            email: user.email,
+            limit: 1,
+          });
+
+          if (existingCustomers.data.length > 0) {
+            customer = existingCustomers.data[0];
+          } else {
+            customer = await this.stripe.customers.create({
+              email: user.email,
+              name: user.name,
+              metadata: {
+                userId: user._id.toString(),
+              },
+            });
+          }
+        } else {
+          throw new BadRequestException('User email is required for subscription');
+        }
+
+        stripeCustomerId = customer.id;
+
+        // Create subscription
+        const subscription = await this.stripe.subscriptions.create({
+          customer: customer.id,
+          items: [{ price: this.subscriptionPriceId }],
+          payment_behavior: 'default_incomplete',
+          payment_settings: { save_default_payment_method: 'on_subscription' },
+          expand: ['latest_invoice.payment_intent'],
+        });
+
+        stripeSubscriptionId = subscription.id;
+        const sub = subscription as any; // Type assertion for Stripe subscription
+        if (sub.current_period_start) {
+          currentPeriodStart = new Date(sub.current_period_start * 1000);
+        }
+        if (sub.current_period_end) {
+          currentPeriodEnd = new Date(sub.current_period_end * 1000);
+        }
+
+        // Get client secret for PaymentSheet
+        const invoice = sub.latest_invoice as any;
+        if (invoice?.payment_intent) {
+          const paymentIntent = invoice.payment_intent as any;
+          clientSecret = paymentIntent.client_secret || undefined;
+        }
+      } catch (error) {
+        console.error('Stripe subscription creation error:', error);
+        throw new BadRequestException(`Failed to create Stripe subscription: ${error.message}`);
+      }
+    }
+
+    // If there's a canceled/expired subscription, update it instead of creating a new one
+    let savedSubscription;
+    if (canceledOrExpiredSubscription) {
+      // Update existing canceled/expired subscription - always make it PENDING (requires email verification)
+      canceledOrExpiredSubscription.role = createSubscriptionDto.role;
+      canceledOrExpiredSubscription.status = SubscriptionStatus.PENDING;
+      canceledOrExpiredSubscription.stripeSubscriptionId = stripeSubscriptionId;
+      canceledOrExpiredSubscription.stripeCustomerId = stripeCustomerId;
+      canceledOrExpiredSubscription.currentPeriodStart = currentPeriodStart;
+      canceledOrExpiredSubscription.currentPeriodEnd = currentPeriodEnd;
+      canceledOrExpiredSubscription.cancelAtPeriodEnd = false;
+      
+      savedSubscription = await canceledOrExpiredSubscription.save();
+    } else {
+      // Create new subscription record in database
+      const subscription = new this.subscriptionModel({
+        userId: user._id,
+        role: createSubscriptionDto.role,
+        status: SubscriptionStatus.PENDING, // Will be activated after email verification
+        stripeSubscriptionId,
+        stripeCustomerId,
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: false,
+      });
+
+      savedSubscription = await subscription.save();
+    }
+
+    return {
+      subscription: this.mapToResponseDto(savedSubscription),
+      clientSecret,
+      message: 'Subscription created successfully. Please verify your email to activate.',
+    };
+  }
+
+  /**
+   * Get user's subscription
+   */
+  async findByUserId(userId: string): Promise<SubscriptionResponseDto | null> {
+    // Convert string userId to ObjectId for query
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    
+    if (!subscription) {
+      return null;
+    }
+
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+    // Check if subscription has expired
+    if (
+      (subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.EXPIRES_SOON) &&
+      subscription.currentPeriodEnd &&
+      new Date() > subscription.currentPeriodEnd
+    ) {
+      // Auto-expire subscription
+      subscription.status = SubscriptionStatus.EXPIRED;
+      await subscription.save();
+
+      // Downgrade user role to owner
+      await this.userModel.findByIdAndUpdate(userId, { role: 'owner' });
+    }
+    // Check if subscription is expiring soon (within 7 days)
+    else if (
+      subscription.status === SubscriptionStatus.ACTIVE &&
+      subscription.currentPeriodEnd &&
+      subscription.currentPeriodEnd <= sevenDaysFromNow &&
+      subscription.currentPeriodEnd > now
+    ) {
+      // Mark as expires soon
+      subscription.status = SubscriptionStatus.EXPIRES_SOON;
+      await subscription.save();
+    }
+    // If subscription was expires_soon but is no longer within 7 days, revert to active
+    else if (
+      subscription.status === SubscriptionStatus.EXPIRES_SOON &&
+      subscription.currentPeriodEnd &&
+      subscription.currentPeriodEnd > sevenDaysFromNow
+    ) {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      await subscription.save();
+    }
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Activate subscription (called after email verification)
+   */
+  async activate(userId: string): Promise<SubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    if (!subscription) {
+      console.log(`⚠️ Cannot activate: No subscription found for userId: ${userId}`);
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      return this.mapToResponseDto(subscription);
+    }
+
+    // Update subscription status
+    subscription.status = SubscriptionStatus.ACTIVE;
+    await subscription.save();
+
+    // Update user role
+    await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Renew/Extend subscription (for expires_soon or active subscriptions)
+   */
+  async renew(userId: string): Promise<SubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    // Only allow renewing active or expires_soon subscriptions
+    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.EXPIRES_SOON) {
+      throw new BadRequestException('Only active or expires soon subscriptions can be renewed');
+    }
+
+    // Extend the subscription period by 1 month
+    const now = new Date();
+    const newPeriodStart = subscription.currentPeriodEnd || now;
+    const newPeriodEnd = new Date(newPeriodStart);
+    newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
+
+    // Update Stripe subscription if exists
+    if (subscription.stripeSubscriptionId && this.stripe) {
+      try {
+        // In production, you might want to create a new invoice or extend the subscription
+        // For now, we'll just update the local record
+        // Stripe will handle billing automatically for active subscriptions
+      } catch (error) {
+        console.error('Stripe renewal error:', error);
+        // Continue with local renewal even if Stripe fails
+      }
+    }
+
+    subscription.currentPeriodStart = newPeriodStart;
+    subscription.currentPeriodEnd = newPeriodEnd;
+    subscription.cancelAtPeriodEnd = false;
+    
+    // Update status based on new expiration date
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    if (newPeriodEnd <= sevenDaysFromNow) {
+      subscription.status = SubscriptionStatus.EXPIRES_SOON;
+    } else {
+      subscription.status = SubscriptionStatus.ACTIVE;
+    }
+
+    await subscription.save();
+
+    // Ensure user role is set correctly
+    await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Cancel subscription immediately
+   */
+  async cancel(userId: string): Promise<CancelSubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE && subscription.status !== SubscriptionStatus.EXPIRES_SOON) {
+      throw new BadRequestException('Only active or expires soon subscriptions can be canceled');
+    }
+
+    // Cancel at Stripe if exists
+    if (subscription.stripeSubscriptionId && this.stripe) {
+      try {
+        // Cancel immediately in Stripe
+        await this.stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+      } catch (error) {
+        console.error('Stripe cancellation error:', error);
+        // Continue with local cancellation even if Stripe fails
+      }
+    }
+
+    // Update subscription status to canceled
+    subscription.status = SubscriptionStatus.CANCELED;
+    subscription.cancelAtPeriodEnd = false;
+    await subscription.save();
+
+    // Downgrade user role to owner
+    await this.userModel.findByIdAndUpdate(userId, { role: 'owner' });
+
+    // Remove veterinarian or pet sitter record based on subscription role
+    try {
+      if (subscription.role === 'vet') {
+        await this.veterinariansService.remove(userId);
+        console.log(`✅ Removed veterinarian record for user ${userId}`);
+      } else if (subscription.role === 'sitter') {
+        await this.petSittersService.remove(userId);
+        console.log(`✅ Removed pet sitter record for user ${userId}`);
+      }
+    } catch (error) {
+      // Log error but don't fail the cancellation if record doesn't exist
+      console.warn(`⚠️ Could not remove ${subscription.role} record for user ${userId}:`, error);
+    }
+
+    return {
+      subscription: this.mapToResponseDto(subscription),
+      message: 'Subscription has been canceled. Your role has been downgraded to owner and your clinic/sitter profile has been removed.',
+    };
+  }
+
+  /**
+   * Reactivate canceled subscription
+   */
+  async reactivate(userId: string): Promise<SubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({ userId: userObjectId });
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    // Allow reactivation if subscription is active or expires_soon (even if scheduled to cancel)
+    if ((subscription.status === SubscriptionStatus.ACTIVE || subscription.status === SubscriptionStatus.EXPIRES_SOON) && !subscription.cancelAtPeriodEnd) {
+      // Already active/expires_soon and not scheduled to cancel, nothing to do
+      return this.mapToResponseDto(subscription);
+    }
+
+    // If subscription is expired or canceled, we need to create a new one
+    if (subscription.status === SubscriptionStatus.EXPIRED || subscription.status === SubscriptionStatus.CANCELED) {
+      throw new BadRequestException('Cannot reactivate expired or canceled subscription. Please create a new subscription.');
+    }
+
+    // Reactivate at Stripe if exists
+    if (subscription.stripeSubscriptionId && this.stripe) {
+      try {
+        await this.stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+          cancel_at_period_end: false,
+        });
+      } catch (error) {
+        console.error('Stripe reactivation error:', error);
+        // Continue with local reactivation even if Stripe fails
+      }
+    }
+
+    // Remove cancellation flag
+    subscription.cancelAtPeriodEnd = false;
+    await subscription.save();
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Handle Stripe webhook events
+   */
+  async handleStripeWebhook(event: Stripe.Event): Promise<void> {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.updateSubscriptionFromStripe(subscription);
+        break;
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        await this.handleSubscriptionDeleted(subscription);
+        break;
+      }
+
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as any;
+        if (invoice.subscription) {
+          const subscription = await this.stripe.subscriptions.retrieve(
+            invoice.subscription as string,
+          );
+          await this.updateSubscriptionFromStripe(subscription);
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as any;
+        if (invoice.subscription) {
+          // Handle payment failure - you might want to notify the user
+          console.warn(`Payment failed for subscription: ${invoice.subscription}`);
+        }
+        break;
+      }
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+  }
+
+  /**
+   * Update subscription from Stripe webhook
+   */
+  private async updateSubscriptionFromStripe(
+    stripeSubscription: Stripe.Subscription,
+  ): Promise<void> {
+    const subscription = await this.subscriptionModel.findOne({
+      stripeSubscriptionId: stripeSubscription.id,
+    });
+
+    if (!subscription) {
+      console.warn(`Subscription not found for Stripe ID: ${stripeSubscription.id}`);
+      return;
+    }
+
+    // Update subscription details
+    const sub = stripeSubscription as any; // Type assertion for Stripe subscription
+    if (sub.current_period_start) {
+      subscription.currentPeriodStart = new Date(
+        sub.current_period_start * 1000,
+      );
+    }
+    if (sub.current_period_end) {
+      subscription.currentPeriodEnd = new Date(
+        sub.current_period_end * 1000,
+      );
+    }
+    subscription.cancelAtPeriodEnd = sub.cancel_at_period_end || false;
+
+    // Update status based on Stripe status
+    switch (stripeSubscription.status) {
+      case 'active':
+        subscription.status = SubscriptionStatus.ACTIVE;
+        // Update user role
+        await this.userModel.findByIdAndUpdate(subscription.userId, {
+          role: subscription.role,
+        });
+        break;
+      case 'canceled':
+      case 'unpaid':
+      case 'past_due':
+        subscription.status = SubscriptionStatus.EXPIRED;
+        // Downgrade user role
+        await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+        break;
+    }
+
+    await subscription.save();
+  }
+
+  /**
+   * Handle subscription deletion from Stripe
+   */
+  private async handleSubscriptionDeleted(
+    stripeSubscription: Stripe.Subscription,
+  ): Promise<void> {
+    const subscription = await this.subscriptionModel.findOne({
+      stripeSubscriptionId: stripeSubscription.id,
+    });
+
+    if (!subscription) {
+      return;
+    }
+
+    // Mark as expired and downgrade user
+    subscription.status = SubscriptionStatus.EXPIRED;
+    await subscription.save();
+
+    // Downgrade user role to owner
+    await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+  }
+
+  /**
+   * Check and expire subscriptions that have passed their period end
+   */
+  async checkAndExpireSubscriptions(): Promise<void> {
+    const now = new Date();
+    const expiredSubscriptions = await this.subscriptionModel.find({
+      status: { $in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.EXPIRES_SOON] },
+      currentPeriodEnd: { $lt: now },
+    });
+
+    for (const subscription of expiredSubscriptions) {
+      subscription.status = SubscriptionStatus.EXPIRED;
+      await subscription.save();
+
+      // Downgrade user role
+      await this.userModel.findByIdAndUpdate(subscription.userId, { role: 'owner' });
+    }
+  }
+
+  /**
+   * Automatically cancel subscriptions that have been expired for more than 3 days
+   */
+  async checkAndCancelExpiredSubscriptions(): Promise<void> {
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // 3 days ago
+    
+    // Find subscriptions that are expired and have been expired for more than 3 days
+    // We check currentPeriodEnd to see when the subscription expired (3 days after period end)
+    const expiredSubscriptions = await this.subscriptionModel.find({
+      status: SubscriptionStatus.EXPIRED,
+      currentPeriodEnd: { $lt: threeDaysAgo }, // Period ended more than 3 days ago
+    });
+
+    for (const subscription of expiredSubscriptions) {
+      // Mark as canceled
+      subscription.status = SubscriptionStatus.CANCELED;
+      await subscription.save();
+
+      // Remove veterinarian or pet sitter record
+      try {
+        if (subscription.role === 'vet') {
+          await this.veterinariansService.remove(subscription.userId.toString());
+          console.log(`✅ Auto-canceled: Removed veterinarian record for user ${subscription.userId}`);
+        } else if (subscription.role === 'sitter') {
+          await this.petSittersService.remove(subscription.userId.toString());
+          console.log(`✅ Auto-canceled: Removed pet sitter record for user ${subscription.userId}`);
+        }
+      } catch (error) {
+        // Log error but don't fail if record doesn't exist
+        console.warn(`⚠️ Auto-cancel: Could not remove ${subscription.role} record for user ${subscription.userId}:`, error);
+      }
+
+      console.log(`✅ Auto-canceled subscription for userId: ${subscription.userId} (expired for more than 3 days)`);
+    }
+
+    if (expiredSubscriptions.length > 0) {
+      console.log(`✅ Auto-canceled ${expiredSubscriptions.length} subscription(s) that were expired for more than 3 days`);
+    }
+  }
+
+  /**
+   * Map subscription document to response DTO
+   */
+  private mapToResponseDto(subscription: SubscriptionDocument): SubscriptionResponseDto {
+    return {
+      id: subscription._id.toString(),
+      userId: subscription.userId.toString(),
+      role: subscription.role,
+      status: subscription.status,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      stripeCustomerId: subscription.stripeCustomerId,
+      currentPeriodStart: subscription.currentPeriodStart,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+      createdAt: subscription.createdAt,
+      updatedAt: subscription.updatedAt,
+    };
+  }
+}
+

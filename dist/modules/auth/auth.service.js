@@ -49,16 +49,18 @@ const config_1 = require("@nestjs/config");
 const users_service_1 = require("../users/users.service");
 const mail_service_1 = require("../mail/mail.service");
 const create_user_dto_1 = require("../users/dto/create-user.dto");
+const subscriptions_service_1 = require("../subscriptions/subscriptions.service");
 const bcrypt = __importStar(require("bcryptjs"));
 const jose_1 = require("jose");
 const GOOGLE_ISS = 'https://accounts.google.com';
 const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 let AuthService = class AuthService {
-    constructor(usersService, jwtService, configService, mailService) {
+    constructor(usersService, jwtService, configService, mailService, subscriptionsService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
         this.configService = configService;
         this.mailService = mailService;
+        this.subscriptionsService = subscriptionsService;
         this.jwks = (0, jose_1.createRemoteJWKSet)(new URL(GOOGLE_JWKS_URL));
         this.accessSecret =
             this.configService.getOrThrow('JWT_ACCESS_SECRET');
@@ -150,6 +152,15 @@ let AuthService = class AuthService {
             verificationCode: undefined,
             verificationCodeExpires: undefined,
         });
+        try {
+            const subscription = await this.subscriptionsService.findByUserId(String(user._id));
+            if (subscription && subscription.status === 'pending') {
+                await this.subscriptionsService.activate(String(user._id));
+            }
+        }
+        catch (error) {
+            console.error('Failed to activate subscription after email verification:', error);
+        }
         return { message: 'Email verified successfully' };
     }
     async login(email, password) {
@@ -228,6 +239,13 @@ let AuthService = class AuthService {
         const user = await this.usersService.findById(userId);
         if (!user)
             throw new common_1.NotFoundException('User not found');
+        let subscription = null;
+        try {
+            subscription = await this.subscriptionsService.findByUserId(userId);
+        }
+        catch (error) {
+            console.error('Error fetching subscription:', error);
+        }
         const safe = {
             _id: user._id,
             email: user.email,
@@ -236,6 +254,12 @@ let AuthService = class AuthService {
             isVerified: user.isVerified,
             pets: user.pets,
             profileImage: user.profileImage,
+            phone: user.phoneNumber,
+            country: user.country,
+            city: user.city,
+            latitude: user.latitude,
+            longitude: user.longitude,
+            subscription: subscription || undefined,
         };
         return safe;
     }
@@ -493,6 +517,7 @@ exports.AuthService = AuthService = __decorate([
     __metadata("design:paramtypes", [users_service_1.UsersService,
         jwt_1.JwtService,
         config_1.ConfigService,
-        mail_service_1.MailService])
+        mail_service_1.MailService,
+        subscriptions_service_1.SubscriptionsService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

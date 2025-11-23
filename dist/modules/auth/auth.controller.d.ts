@@ -49,7 +49,9 @@ export declare class AuthController {
     resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{
         message: string;
     }>;
-    getProfile(user: User): Promise<Partial<import("../users/schemas/user.schema").UserDocument>>;
+    getProfile(user: User): Promise<Partial<import("../users/schemas/user.schema").UserDocument> & {
+        subscription?: any;
+    }>;
     checkEmailExists(req: Request): Promise<{
         exists: boolean;
     }>;
