@@ -24,6 +24,7 @@ import {
 } from './dto/subscription-response.dto';
 import { VeterinariansService } from '../veterinarians/veterinarians.service';
 import { PetSittersService } from '../pet-sitters/pet-sitters.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class SubscriptionsService {
@@ -38,6 +39,7 @@ export class SubscriptionsService {
     private readonly configService: ConfigService,
     private readonly veterinariansService: VeterinariansService,
     private readonly petSittersService: PetSittersService,
+    private readonly mailService: MailService,
   ) {
     // Initialize Stripe
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
@@ -204,6 +206,36 @@ export class SubscriptionsService {
       savedSubscription = await subscription.save();
     }
 
+    // Send verification code to user's email for subscription activation
+    try {
+      const user = await this.userModel.findById(userId);
+      if (user && user.email) {
+        // Generate a new verification code for subscription
+        const verificationCode = Math.floor(
+          100000 + Math.random() * 900000,
+        ).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Update user with new verification code
+        await this.userModel.findByIdAndUpdate(userId, {
+          verificationCode,
+          verificationCodeExpires: expiresAt,
+        });
+
+        // Send verification code via email
+        await this.mailService.sendVerificationCode(user.email, verificationCode);
+        console.log(
+          `✅ Subscription verification code sent to ${user.email} for subscription activation`,
+        );
+      }
+    } catch (error) {
+      // Log error but don't fail subscription creation if email sending fails
+      console.error(
+        'Failed to send subscription verification code:',
+        error instanceof Error ? error.message : error,
+      );
+    }
+
     return {
       subscription: this.mapToResponseDto(savedSubscription),
       clientSecret,
@@ -294,6 +326,112 @@ export class SubscriptionsService {
     await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
 
     return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Verify email with code for subscription activation
+   * This is subscription-specific verification that activates the subscription
+   * Note: This allows verification even if user is already verified (for subscription activation)
+   */
+  async verifyEmail(userId: string, code: string): Promise<SubscriptionResponseDto> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user has a pending subscription
+    const subscription = await this.subscriptionModel.findOne({
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No subscription found');
+    }
+
+    if (subscription.status !== SubscriptionStatus.PENDING) {
+      throw new BadRequestException(
+        `Subscription is not pending. Current status: ${subscription.status}`,
+      );
+    }
+
+    // Verify the code
+    const now = new Date();
+    if (
+      !user.verificationCode ||
+      user.verificationCode !== code ||
+      !user.verificationCodeExpires ||
+      user.verificationCodeExpires < now
+    ) {
+      throw new BadRequestException('Invalid or expired verification code');
+    }
+
+    // Clear verification code
+    await this.userModel.findByIdAndUpdate(userId, {
+      verificationCode: undefined,
+      verificationCodeExpires: undefined,
+    });
+
+    // Activate subscription
+    subscription.status = SubscriptionStatus.ACTIVE;
+    await subscription.save();
+
+    // Update user role
+    await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
+   * Resend verification code for subscription activation
+   * This works even if user is already verified (for subscription activation)
+   */
+  async resendVerificationCode(userId: string): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if user has a pending subscription
+    const subscription = await this.subscriptionModel.findOne({
+      userId: new Types.ObjectId(userId),
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No subscription found');
+    }
+
+    if (subscription.status !== SubscriptionStatus.PENDING) {
+      throw new BadRequestException(
+        `Subscription is not pending. Current status: ${subscription.status}`,
+      );
+    }
+
+    // Generate a new verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Update user with new verification code (even if already verified)
+    await this.userModel.findByIdAndUpdate(userId, {
+      verificationCode,
+      verificationCodeExpires: expiresAt,
+    });
+
+    // Send verification code via email
+    try {
+      await this.mailService.sendVerificationCode(user.email, verificationCode);
+      console.log(
+        `✅ Subscription verification code resent to ${user.email}`,
+      );
+      return { message: 'Verification code sent to your email' };
+    } catch (error) {
+      console.error(
+        'Failed to send subscription verification code:',
+        error instanceof Error ? error.message : error,
+      );
+      throw new BadRequestException(
+        'Failed to send verification code. Please try again later.',
+      );
+    }
   }
 
   /**

@@ -17,7 +17,9 @@ import {
   SubscriptionResponseDto,
   CreateSubscriptionResponseDto,
   CancelSubscriptionResponseDto,
+  VerifyEmailResponseDto,
 } from './dto/subscription-response.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -102,6 +104,46 @@ export class SubscriptionsController {
     @CurrentUser() user: UserDocument,
   ): Promise<SubscriptionResponseDto> {
     return this.subscriptionsService.renew(user._id.toString());
+  }
+
+  @Post('verify-email')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(
+    @CurrentUser() user: UserDocument,
+    @Body() verifyEmailDto: VerifyEmailDto,
+  ): Promise<VerifyEmailResponseDto> {
+    try {
+      const subscription = await this.subscriptionsService.verifyEmail(
+        user._id.toString(),
+        verifyEmailDto.code,
+      );
+      return {
+        success: true,
+        message: 'Email verified! Your subscription is now active.',
+        subscription,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to verify email',
+        subscription: undefined,
+      };
+    }
+  }
+
+  @Post('resend-verification')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(
+    @CurrentUser() user: UserDocument,
+  ): Promise<{ message: string }> {
+    return this.subscriptionsService.resendVerificationCode(
+      user._id.toString(),
+    );
   }
 
   @Post('webhook')

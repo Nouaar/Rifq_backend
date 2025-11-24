@@ -11,6 +11,7 @@ import { User, UserSchema } from '../users/schemas/user.schema';
 import { UsersModule } from '../users/users.module';
 import { VeterinariansModule } from '../veterinarians/veterinarians.module';
 import { PetSittersModule } from '../pet-sitters/pet-sitters.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PetSittersModule } from '../pet-sitters/pet-sitters.module';
     UsersModule,
     VeterinariansModule,
     PetSittersModule,
+    MailModule,
   ],
   controllers: [SubscriptionsController],
   providers: [SubscriptionsService, SubscriptionsScheduler],
