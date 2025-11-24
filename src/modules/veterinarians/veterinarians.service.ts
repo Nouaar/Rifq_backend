@@ -80,12 +80,30 @@ export class VeterinariansService {
       if (!user || !('_id' in user)) {
         throw new NotFoundException('User not populated correctly');
       }
-      // Merge latitude and longitude from Veterinarian into User document
+      // Merge all veterinarian-specific fields into User document
       if (vet.latitude !== undefined) {
         (user as any).latitude = vet.latitude;
       }
       if (vet.longitude !== undefined) {
         (user as any).longitude = vet.longitude;
+      }
+      if (vet.licenseNumber !== undefined) {
+        (user as any).licenseNumber = vet.licenseNumber;
+      }
+      if (vet.clinicName !== undefined) {
+        (user as any).clinicName = vet.clinicName;
+      }
+      if (vet.clinicAddress !== undefined) {
+        (user as any).clinicAddress = vet.clinicAddress;
+      }
+      if (vet.specializations !== undefined) {
+        (user as any).specializations = vet.specializations;
+      }
+      if (vet.yearsOfExperience !== undefined) {
+        (user as any).yearsOfExperience = vet.yearsOfExperience;
+      }
+      if (vet.bio !== undefined) {
+        (user as any).bio = vet.bio;
       }
       return user;
     });
@@ -103,12 +121,30 @@ export class VeterinariansService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from Veterinarian into User document
+    // Merge all veterinarian-specific fields into User document
     if (vet.latitude !== undefined) {
       (user as any).latitude = vet.latitude;
     }
     if (vet.longitude !== undefined) {
       (user as any).longitude = vet.longitude;
+    }
+    if (vet.licenseNumber !== undefined) {
+      (user as any).licenseNumber = vet.licenseNumber;
+    }
+    if (vet.clinicName !== undefined) {
+      (user as any).clinicName = vet.clinicName;
+    }
+    if (vet.clinicAddress !== undefined) {
+      (user as any).clinicAddress = vet.clinicAddress;
+    }
+    if (vet.specializations !== undefined) {
+      (user as any).specializations = vet.specializations;
+    }
+    if (vet.yearsOfExperience !== undefined) {
+      (user as any).yearsOfExperience = vet.yearsOfExperience;
+    }
+    if (vet.bio !== undefined) {
+      (user as any).bio = vet.bio;
     }
     return user;
   }
@@ -130,8 +166,23 @@ export class VeterinariansService {
   }
 
   async update(id: string, updateVetDto: UpdateVetDto): Promise<UserDocument> {
+    // Update user fields if provided
+    if (updateVetDto.name || updateVetDto.email || updateVetDto.phoneNumber) {
+      const userUpdate: any = {};
+      if (updateVetDto.name) userUpdate.name = updateVetDto.name;
+      if (updateVetDto.email) userUpdate.email = updateVetDto.email;
+      if (updateVetDto.phoneNumber !== undefined) userUpdate.phoneNumber = updateVetDto.phoneNumber;
+      await this.userModel.findByIdAndUpdate(id, { $set: userUpdate }).exec();
+    }
+
+    // Prepare vet-specific update data (exclude user fields)
+    const vetUpdateData: any = { ...updateVetDto };
+    delete vetUpdateData.name;
+    delete vetUpdateData.email;
+    delete vetUpdateData.phoneNumber;
+
     const vet = await this.veterinarianModel
-      .findOneAndUpdate({ user: id }, { $set: updateVetDto }, { new: true })
+      .findOneAndUpdate({ user: id }, { $set: vetUpdateData }, { new: true })
       .populate('user')
       .exec();
 
@@ -142,12 +193,30 @@ export class VeterinariansService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from Veterinarian into User document
+    // Merge all veterinarian-specific fields into User document
     if (vet.latitude !== undefined) {
       (user as any).latitude = vet.latitude;
     }
     if (vet.longitude !== undefined) {
       (user as any).longitude = vet.longitude;
+    }
+    if (vet.licenseNumber !== undefined) {
+      (user as any).licenseNumber = vet.licenseNumber;
+    }
+    if (vet.clinicName !== undefined) {
+      (user as any).clinicName = vet.clinicName;
+    }
+    if (vet.clinicAddress !== undefined) {
+      (user as any).clinicAddress = vet.clinicAddress;
+    }
+    if (vet.specializations !== undefined) {
+      (user as any).specializations = vet.specializations;
+    }
+    if (vet.yearsOfExperience !== undefined) {
+      (user as any).yearsOfExperience = vet.yearsOfExperience;
+    }
+    if (vet.bio !== undefined) {
+      (user as any).bio = vet.bio;
     }
     return user;
   }

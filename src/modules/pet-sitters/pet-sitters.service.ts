@@ -90,12 +90,36 @@ export class PetSittersService {
       if (!user || !('_id' in user)) {
         throw new NotFoundException('User not populated correctly');
       }
-      // Merge latitude and longitude from PetSitter into User document
+      // Merge all sitter-specific fields into User document
       if (sitter.latitude !== undefined) {
         (user as any).latitude = sitter.latitude;
       }
       if (sitter.longitude !== undefined) {
         (user as any).longitude = sitter.longitude;
+      }
+      if (sitter.hourlyRate !== undefined) {
+        (user as any).hourlyRate = sitter.hourlyRate;
+      }
+      if (sitter.sitterAddress !== undefined) {
+        (user as any).sitterAddress = sitter.sitterAddress;
+      }
+      if (sitter.services !== undefined) {
+        (user as any).services = sitter.services;
+      }
+      if (sitter.yearsOfExperience !== undefined) {
+        (user as any).yearsOfExperience = sitter.yearsOfExperience;
+      }
+      if (sitter.availableWeekends !== undefined) {
+        (user as any).availableWeekends = sitter.availableWeekends;
+      }
+      if (sitter.canHostPets !== undefined) {
+        (user as any).canHostPets = sitter.canHostPets;
+      }
+      if (sitter.availability !== undefined) {
+        (user as any).availability = sitter.availability;
+      }
+      if (sitter.bio !== undefined) {
+        (user as any).bio = sitter.bio;
       }
       return user;
     });
@@ -113,12 +137,36 @@ export class PetSittersService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from PetSitter into User document
+    // Merge all sitter-specific fields into User document
     if (sitter.latitude !== undefined) {
       (user as any).latitude = sitter.latitude;
     }
     if (sitter.longitude !== undefined) {
       (user as any).longitude = sitter.longitude;
+    }
+    if (sitter.hourlyRate !== undefined) {
+      (user as any).hourlyRate = sitter.hourlyRate;
+    }
+    if (sitter.sitterAddress !== undefined) {
+      (user as any).sitterAddress = sitter.sitterAddress;
+    }
+    if (sitter.services !== undefined) {
+      (user as any).services = sitter.services;
+    }
+    if (sitter.yearsOfExperience !== undefined) {
+      (user as any).yearsOfExperience = sitter.yearsOfExperience;
+    }
+    if (sitter.availableWeekends !== undefined) {
+      (user as any).availableWeekends = sitter.availableWeekends;
+    }
+    if (sitter.canHostPets !== undefined) {
+      (user as any).canHostPets = sitter.canHostPets;
+    }
+    if (sitter.availability !== undefined) {
+      (user as any).availability = sitter.availability;
+    }
+    if (sitter.bio !== undefined) {
+      (user as any).bio = sitter.bio;
     }
     return user;
   }
@@ -143,15 +191,27 @@ export class PetSittersService {
     id: string,
     updateSitterDto: UpdateSitterDto,
   ): Promise<UserDocument> {
-    // Map sitterAddress to sitterAddress in update data
+    // Update user fields if provided
+    if (updateSitterDto.name || updateSitterDto.email || updateSitterDto.phoneNumber) {
+      const userUpdate: any = {};
+      if (updateSitterDto.name) userUpdate.name = updateSitterDto.name;
+      if (updateSitterDto.email) userUpdate.email = updateSitterDto.email;
+      if (updateSitterDto.phoneNumber !== undefined) userUpdate.phoneNumber = updateSitterDto.phoneNumber;
+      await this.userModel.findByIdAndUpdate(id, { $set: userUpdate }).exec();
+    }
+
+    // Prepare sitter-specific update data (exclude user fields)
     const updateData: any = { ...updateSitterDto };
+    delete updateData.name;
+    delete updateData.email;
+    delete updateData.phoneNumber;
 
     // Convert availability strings to Date objects if provided
     if (
-      updateSitterDto.availability &&
-      Array.isArray(updateSitterDto.availability)
+      updateData.availability &&
+      Array.isArray(updateData.availability)
     ) {
-      updateData.availability = updateSitterDto.availability.map(
+      updateData.availability = updateData.availability.map(
         (date: any) => {
           if (typeof date === 'string') {
             return new Date(date);
@@ -173,12 +233,36 @@ export class PetSittersService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from PetSitter into User document
+    // Merge all sitter-specific fields into User document
     if (sitter.latitude !== undefined) {
       (user as any).latitude = sitter.latitude;
     }
     if (sitter.longitude !== undefined) {
       (user as any).longitude = sitter.longitude;
+    }
+    if (sitter.hourlyRate !== undefined) {
+      (user as any).hourlyRate = sitter.hourlyRate;
+    }
+    if (sitter.sitterAddress !== undefined) {
+      (user as any).sitterAddress = sitter.sitterAddress;
+    }
+    if (sitter.services !== undefined) {
+      (user as any).services = sitter.services;
+    }
+    if (sitter.yearsOfExperience !== undefined) {
+      (user as any).yearsOfExperience = sitter.yearsOfExperience;
+    }
+    if (sitter.availableWeekends !== undefined) {
+      (user as any).availableWeekends = sitter.availableWeekends;
+    }
+    if (sitter.canHostPets !== undefined) {
+      (user as any).canHostPets = sitter.canHostPets;
+    }
+    if (sitter.availability !== undefined) {
+      (user as any).availability = sitter.availability;
+    }
+    if (sitter.bio !== undefined) {
+      (user as any).bio = sitter.bio;
     }
     return user;
   }
