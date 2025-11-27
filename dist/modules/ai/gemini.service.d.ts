@@ -21,4 +21,9 @@ export declare class GeminiService {
         maxTokens?: number;
         maxRetries?: number;
     }): Promise<string>;
+    analyzeImage(imageBase64: string, prompt: string, options?: {
+        temperature?: number;
+        maxTokens?: number;
+        maxRetries?: number;
+    }): Promise<string>;
 }

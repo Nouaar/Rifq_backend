@@ -25,13 +25,15 @@ const subscription_schema_1 = require("./schemas/subscription.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
 const veterinarians_service_1 = require("../veterinarians/veterinarians.service");
 const pet_sitters_service_1 = require("../pet-sitters/pet-sitters.service");
+const mail_service_1 = require("../mail/mail.service");
 let SubscriptionsService = class SubscriptionsService {
-    constructor(subscriptionModel, userModel, configService, veterinariansService, petSittersService) {
+    constructor(subscriptionModel, userModel, configService, veterinariansService, petSittersService, mailService) {
         this.subscriptionModel = subscriptionModel;
         this.userModel = userModel;
         this.configService = configService;
         this.veterinariansService = veterinariansService;
         this.petSittersService = petSittersService;
+        this.mailService = mailService;
         const stripeSecretKey = this.configService.get('STRIPE_SECRET_KEY');
         if (!stripeSecretKey) {
             console.warn('⚠️ STRIPE_SECRET_KEY not found. Stripe features will be disabled.');
@@ -154,6 +156,22 @@ let SubscriptionsService = class SubscriptionsService {
             });
             savedSubscription = await subscription.save();
         }
+        try {
+            const user = await this.userModel.findById(userId);
+            if (user && user.email) {
+                const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+                await this.userModel.findByIdAndUpdate(userId, {
+                    verificationCode,
+                    verificationCodeExpires: expiresAt,
+                });
+                await this.mailService.sendVerificationCode(user.email, verificationCode);
+                console.log(`✅ Subscription verification code sent to ${user.email} for subscription activation`);
+            }
+        }
+        catch (error) {
+            console.error('Failed to send subscription verification code:', error instanceof Error ? error.message : error);
+        }
         return {
             subscription: this.mapToResponseDto(savedSubscription),
             clientSecret,
@@ -209,6 +227,66 @@ let SubscriptionsService = class SubscriptionsService {
         await subscription.save();
         await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
         return this.mapToResponseDto(subscription);
+    }
+    async verifyEmail(userId, code) {
+        const user = await this.userModel.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        const subscription = await this.subscriptionModel.findOne({
+            userId: new mongoose_2.Types.ObjectId(userId),
+        });
+        if (!subscription) {
+            throw new common_1.NotFoundException('No subscription found');
+        }
+        if (subscription.status !== subscription_schema_1.SubscriptionStatus.PENDING) {
+            throw new common_1.BadRequestException(`Subscription is not pending. Current status: ${subscription.status}`);
+        }
+        const now = new Date();
+        if (!user.verificationCode ||
+            user.verificationCode !== code ||
+            !user.verificationCodeExpires ||
+            user.verificationCodeExpires < now) {
+            throw new common_1.BadRequestException('Invalid or expired verification code');
+        }
+        await this.userModel.findByIdAndUpdate(userId, {
+            verificationCode: undefined,
+            verificationCodeExpires: undefined,
+        });
+        subscription.status = subscription_schema_1.SubscriptionStatus.ACTIVE;
+        await subscription.save();
+        await this.userModel.findByIdAndUpdate(userId, { role: subscription.role });
+        return this.mapToResponseDto(subscription);
+    }
+    async resendVerificationCode(userId) {
+        const user = await this.userModel.findById(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        const subscription = await this.subscriptionModel.findOne({
+            userId: new mongoose_2.Types.ObjectId(userId),
+        });
+        if (!subscription) {
+            throw new common_1.NotFoundException('No subscription found');
+        }
+        if (subscription.status !== subscription_schema_1.SubscriptionStatus.PENDING) {
+            throw new common_1.BadRequestException(`Subscription is not pending. Current status: ${subscription.status}`);
+        }
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await this.userModel.findByIdAndUpdate(userId, {
+            verificationCode,
+            verificationCodeExpires: expiresAt,
+        });
+        try {
+            await this.mailService.sendVerificationCode(user.email, verificationCode);
+            console.log(`✅ Subscription verification code resent to ${user.email}`);
+            return { message: 'Verification code sent to your email' };
+        }
+        catch (error) {
+            console.error('Failed to send subscription verification code:', error instanceof Error ? error.message : error);
+            throw new common_1.BadRequestException('Failed to send verification code. Please try again later.');
+        }
     }
     async renew(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
@@ -469,6 +547,7 @@ exports.SubscriptionsService = SubscriptionsService = __decorate([
         mongoose_2.Model,
         config_1.ConfigService,
         veterinarians_service_1.VeterinariansService,
-        pet_sitters_service_1.PetSittersService])
+        pet_sitters_service_1.PetSittersService,
+        mail_service_1.MailService])
 ], SubscriptionsService);
 //# sourceMappingURL=subscriptions.service.js.map

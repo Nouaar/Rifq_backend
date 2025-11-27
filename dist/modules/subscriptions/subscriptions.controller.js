@@ -19,6 +19,7 @@ exports.SubscriptionsController = void 0;
 const common_1 = require("@nestjs/common");
 const subscriptions_service_1 = require("./subscriptions.service");
 const create_subscription_dto_1 = require("./dto/create-subscription.dto");
+const verify_email_dto_1 = require("./dto/verify-email.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const subscription_schema_1 = require("./schemas/subscription.schema");
@@ -61,6 +62,28 @@ let SubscriptionsController = class SubscriptionsController {
     }
     async renew(user) {
         return this.subscriptionsService.renew(user._id.toString());
+    }
+    async verifyEmail(user, verifyEmailDto) {
+        try {
+            const subscription = await this.subscriptionsService.verifyEmail(user._id.toString(), verifyEmailDto.code);
+            return {
+                success: true,
+                message: 'Email verified! Your subscription is now active.',
+                subscription,
+            };
+        }
+        catch (error) {
+            return {
+                success: false,
+                message: error instanceof Error
+                    ? error.message
+                    : 'Failed to verify email',
+                subscription: undefined,
+            };
+        }
+    }
+    async resendVerification(user) {
+        return this.subscriptionsService.resendVerificationCode(user._id.toString());
     }
     async handleWebhook(req) {
         const sig = req.headers['stripe-signature'];
@@ -141,6 +164,25 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SubscriptionsController.prototype, "renew", null);
+__decorate([
+    (0, common_1.Post)('verify-email'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, verify_email_dto_1.VerifyEmailDto]),
+    __metadata("design:returntype", Promise)
+], SubscriptionsController.prototype, "verifyEmail", null);
+__decorate([
+    (0, common_1.Post)('resend-verification'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SubscriptionsController.prototype, "resendVerification", null);
 __decorate([
     (0, common_1.Post)('webhook'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

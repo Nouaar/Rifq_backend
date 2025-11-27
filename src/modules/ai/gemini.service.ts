@@ -6,7 +6,11 @@ import axios, { AxiosInstance } from 'axios';
 interface GeminiRequest {
   contents: Array<{
     parts: Array<{
-      text: string;
+      text?: string;
+      inlineData?: {
+        mimeType: string;
+        data: string; // base64 encoded image
+      };
     }>;
   }>;
   generationConfig?: {
@@ -544,5 +548,138 @@ export class GeminiService {
         this.logger.error('Error processing request queue:', error);
       });
     });
+  }
+
+  /**
+   * Analyze image with text prompt using Gemini Vision API
+   */
+  async analyzeImage(
+    imageBase64: string,
+    prompt: string,
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      maxRetries?: number;
+    } = {},
+  ): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
+
+    // Remove data URI prefix if present
+    const base64Data = imageBase64.includes(',')
+      ? imageBase64.split(',')[1]
+      : imageBase64;
+
+    // Detect MIME type from base64 or default to jpeg
+    let mimeType = 'image/jpeg';
+    if (imageBase64.includes('data:image/')) {
+      const match = imageBase64.match(/data:image\/([^;]+)/);
+      if (match) {
+        mimeType = `image/${match[1]}`;
+      }
+    }
+
+    const modelName = await this.getAvailableModel();
+    const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
+
+    const requestBody: GeminiRequest = {
+      contents: [
+        {
+          parts: [
+            {
+              inlineData: {
+                mimeType,
+                data: base64Data,
+              },
+            },
+            {
+              text: prompt,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: options.temperature || 0.7,
+        maxOutputTokens: options.maxTokens || 2000,
+      },
+    };
+
+    this.logger.log(
+      `📤 Analyzing image with Gemini Vision API (${base64Data.length} bytes, prompt: ${prompt.length} chars)`,
+    );
+
+    let lastError: Error | null = null;
+    const maxRetries = options.maxRetries || 3;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = Math.min(attempt * 1.0, 5.0) * 1000;
+          this.logger.log(
+            `Retrying image analysis after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        await this.waitForRateLimit();
+
+        const response = await this.axiosInstance.post<GeminiResponse>(
+          url,
+          requestBody,
+        );
+
+        if (response.data.error) {
+          this.logger.error(
+            `Gemini Vision API error: ${JSON.stringify(response.data.error)}`,
+          );
+          throw new Error(
+            `Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`,
+          );
+        }
+
+        if (
+          !response.data.candidates ||
+          response.data.candidates.length === 0
+        ) {
+          throw new Error('No candidates in Gemini Vision API response');
+        }
+
+        const candidate = response.data.candidates[0];
+        const text = candidate.content?.parts?.[0]?.text;
+
+        if (!text || text.trim().length === 0) {
+          throw new Error('Empty response from Gemini Vision API');
+        }
+
+        this.logger.log(
+          `✅ Successfully analyzed image (${text.length} chars)`,
+        );
+        return text.trim();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          if (status === 429) {
+            const retryAfter = 60000; // 60 seconds
+            this.logger.warn(
+              `Rate limit exceeded for image analysis. Waiting ${Math.ceil(retryAfter / 1000)}s...`,
+            );
+            if (attempt < maxRetries - 1) {
+              this.requestTimestamps = [];
+              await new Promise((resolve) => setTimeout(resolve, retryAfter));
+              continue;
+            }
+          }
+        }
+
+        if (attempt === maxRetries - 1) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || new Error('Failed to analyze image after retries');
   }
 }

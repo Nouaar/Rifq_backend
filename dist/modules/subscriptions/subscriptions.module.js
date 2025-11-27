@@ -18,6 +18,7 @@ const user_schema_1 = require("../users/schemas/user.schema");
 const users_module_1 = require("../users/users.module");
 const veterinarians_module_1 = require("../veterinarians/veterinarians.module");
 const pet_sitters_module_1 = require("../pet-sitters/pet-sitters.module");
+const mail_module_1 = require("../mail/mail.module");
 let SubscriptionsModule = class SubscriptionsModule {
 };
 exports.SubscriptionsModule = SubscriptionsModule;
@@ -32,6 +33,7 @@ exports.SubscriptionsModule = SubscriptionsModule = __decorate([
             users_module_1.UsersModule,
             veterinarians_module_1.VeterinariansModule,
             pet_sitters_module_1.PetSittersModule,
+            mail_module_1.MailModule,
         ],
         controllers: [subscriptions_controller_1.SubscriptionsController],
         providers: [subscriptions_service_1.SubscriptionsService, subscriptions_scheduler_1.SubscriptionsScheduler],

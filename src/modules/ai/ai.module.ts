@@ -19,6 +19,6 @@ import {
   ],
   controllers: [AiController],
   providers: [AiService, GeminiService],
-  exports: [AiService],
+  exports: [AiService, GeminiService], // Export GeminiService for chatbot module
 })
 export class AiModule {}

@@ -21,3 +21,8 @@ export declare class CancelSubscriptionResponseDto {
     subscription: SubscriptionResponseDto;
     message?: string;
 }
+export declare class VerifyEmailResponseDto {
+    success: boolean;
+    message?: string;
+    subscription?: SubscriptionResponseDto;
+}

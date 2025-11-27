@@ -15,6 +15,7 @@ import { BookingsModule } from './modules/bookings/bookings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AiModule } from './modules/ai/ai.module';
 import { FcmModule } from './modules/fcm/fcm.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { FcmModule } from './modules/fcm/fcm.module';
     BookingsModule,
     AiModule,
     FcmModule,
+    ChatbotModule,
   ],
   controllers: [AppController],
   providers: [AppService],
