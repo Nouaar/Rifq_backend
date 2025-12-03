@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const chatbot_controller_1 = require("./chatbot.controller");
 const chatbot_service_1 = require("./chatbot.service");
+const chatbot_gemini_service_1 = require("./chatbot-gemini.service");
 const ai_module_1 = require("../ai/ai.module");
 const cloudinary_module_1 = require("../cloudinary/cloudinary.module");
 const pet_schema_1 = require("../pets/schemas/pet.schema");
@@ -33,7 +34,7 @@ exports.ChatbotModule = ChatbotModule = __decorate([
             ]),
         ],
         controllers: [chatbot_controller_1.ChatbotController],
-        providers: [chatbot_service_1.ChatbotService],
+        providers: [chatbot_service_1.ChatbotService, chatbot_gemini_service_1.ChatbotGeminiService],
         exports: [chatbot_service_1.ChatbotService],
     })
 ], ChatbotModule);

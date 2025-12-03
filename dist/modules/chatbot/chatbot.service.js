@@ -17,14 +17,14 @@ exports.ChatbotService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
-const gemini_service_1 = require("../ai/gemini.service");
+const chatbot_gemini_service_1 = require("./chatbot-gemini.service");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 const pet_schema_1 = require("../pets/schemas/pet.schema");
 const medical_history_schema_1 = require("../pets/schemas/medical-history.schema");
 const chatbot_message_schema_1 = require("./schemas/chatbot-message.schema");
 let ChatbotService = ChatbotService_1 = class ChatbotService {
-    constructor(geminiService, cloudinaryService, userModel, petModel, medicalHistoryModel, chatbotMessageModel) {
-        this.geminiService = geminiService;
+    constructor(chatbotGeminiService, cloudinaryService, userModel, petModel, medicalHistoryModel, chatbotMessageModel) {
+        this.chatbotGeminiService = chatbotGeminiService;
         this.cloudinaryService = cloudinaryService;
         this.userModel = userModel;
         this.petModel = petModel;
@@ -230,7 +230,7 @@ User Question: ${userMessage}`;
             if (chatbotMessageDto.image) {
                 const imagePrompt = await this.buildImageAnalysisPrompt(userId, chatbotMessageDto.message, history, chatbotMessageDto.context);
                 this.logger.log(`Processing chatbot message with image for user ${userId} (${chatbotMessageDto.message.length} chars)`);
-                response = await this.geminiService.analyzeImage(chatbotMessageDto.image, imagePrompt, {
+                response = await this.chatbotGeminiService.analyzeImage(chatbotMessageDto.image, imagePrompt, {
                     temperature: 0.7,
                     maxTokens: 500,
                 });
@@ -238,7 +238,7 @@ User Question: ${userMessage}`;
             else {
                 const prompt = await this.buildContextualPromptWithHistory(userId, chatbotMessageDto.message, history, chatbotMessageDto.context);
                 this.logger.log(`Processing chatbot message for user ${userId} (${chatbotMessageDto.message.length} chars)`);
-                response = await this.geminiService.generateText(prompt, {
+                response = await this.chatbotGeminiService.generateText(prompt, {
                     temperature: 0.7,
                     maxTokens: 500,
                 });
@@ -343,7 +343,7 @@ USER'S PETS INFORMATION:`;
 - Give 1-2 actionable recommendations
 - Remind to consult a veterinarian for serious concerns`;
             this.logger.log(`Analyzing image for user ${userId} (${imageAnalysisDto.image.length} chars base64)`);
-            const response = await this.geminiService.analyzeImage(imageAnalysisDto.image, prompt, {
+            const response = await this.chatbotGeminiService.analyzeImage(imageAnalysisDto.image, prompt, {
                 temperature: 0.7,
                 maxTokens: 500,
             });
@@ -404,7 +404,7 @@ exports.ChatbotService = ChatbotService = ChatbotService_1 = __decorate([
     __param(3, (0, mongoose_1.InjectModel)(pet_schema_1.Pet.name)),
     __param(4, (0, mongoose_1.InjectModel)(medical_history_schema_1.MedicalHistory.name)),
     __param(5, (0, mongoose_1.InjectModel)(chatbot_message_schema_1.ChatbotMessage.name)),
-    __metadata("design:paramtypes", [gemini_service_1.GeminiService,
+    __metadata("design:paramtypes", [chatbot_gemini_service_1.ChatbotGeminiService,
         cloudinary_service_1.CloudinaryService,
         mongoose_2.Model,
         mongoose_2.Model,

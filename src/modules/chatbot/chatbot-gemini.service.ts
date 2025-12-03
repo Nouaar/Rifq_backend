@@ -123,11 +123,33 @@ export class ChatbotGeminiService {
     // If we've made max requests, wait until the oldest request is outside the window
     if (this.requestTimestamps.length >= this.maxRequestsPerMinute) {
       const oldestRequest = this.requestTimestamps[0];
-      const waitTime = this.requestWindowMs - (now - oldestRequest);
+      const waitTime = this.requestWindowMs - (now - oldestRequest) + 2000; // Add 2 second buffer
 
       if (waitTime > 0) {
         this.logger.log(
-          `Rate limit reached. Waiting ${Math.ceil(waitTime / 1000)}s before next request...`,
+          `Rate limit: Waiting ${Math.ceil(waitTime / 1000)}s before API call (${this.requestTimestamps.length}/${this.maxRequestsPerMinute} requests in last minute)`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+        // Clean up again after waiting
+        const afterWait = Date.now();
+        this.requestTimestamps = this.requestTimestamps.filter(
+          (timestamp) => afterWait - timestamp < this.requestWindowMs,
+        );
+      }
+    }
+
+    // Ensure minimum 30 seconds between requests (for 2 requests per minute)
+    if (this.requestTimestamps.length > 0) {
+      const lastRequest =
+        this.requestTimestamps[this.requestTimestamps.length - 1];
+      const timeSinceLastRequest = now - lastRequest;
+      const minInterval = 30000; // 30 seconds minimum between requests
+
+      if (timeSinceLastRequest < minInterval) {
+        const waitTime = minInterval - timeSinceLastRequest;
+        this.logger.log(
+          `Enforcing minimum interval: Waiting ${Math.ceil(waitTime / 1000)}s (${timeSinceLastRequest}ms since last request)`,
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
@@ -169,42 +191,60 @@ export class ChatbotGeminiService {
   }
 
   /**
-   * Get the best available Gemini model
+   * Get available Gemini model name
    */
-  private async getBestModel(): Promise<string> {
-    // Try models in order of preference
-    const models = [
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro',
-    ];
+  private async getAvailableModel(): Promise<string> {
+    if (this.cachedModelName) {
+      return this.cachedModelName;
+    }
 
-    for (const model of models) {
-      try {
-        const url = `${this.baseURL}/models/${model}?key=${this.apiKey}`;
-        await this.axiosInstance.get(url, { timeout: 5000 });
-        this.logger.log(`Using Gemini model: ${model}`);
-        return model;
-      } catch (error) {
-        // Model not available, try next
-        continue;
+    try {
+      const response = await this.axiosInstance.get<{
+        models?: Array<{ name: string }>;
+      }>(`${this.baseURL}/models?key=${this.apiKey}`);
+
+      if (response.status === 200 && response.data.models) {
+        const models = response.data.models;
+        // Prioritize Flash models (more generous free tier quotas)
+        const preferredNames = [
+          'gemini-2.5-flash', // Newest flash model with best quotas
+          'gemini-1.5-flash', // Fast and generous free tier
+          'gemini-2.0-flash', // Alternative flash model
+          'gemini-1.5-pro', // Fallback to pro if flash not available
+          'gemini-pro',
+          'gemini-1.0-pro',
+        ];
+
+        for (const preferredName of preferredNames) {
+          const model = models.find(
+            (m) =>
+              m.name.includes(preferredName) ||
+              m.name.includes(preferredName.replace(/-/g, '_')),
+          );
+          if (model) {
+            const modelName = model.name.split('/').pop() || model.name;
+            this.cachedModelName = modelName;
+            this.logger.log(`Using Gemini model: ${modelName}`);
+            return modelName;
+          }
+        }
+
+        // Fallback to first available model
+        if (models.length > 0) {
+          const modelName = models[0].name.split('/').pop() || models[0].name;
+          this.cachedModelName = modelName;
+          this.logger.log(`Using first available model: ${modelName}`);
+          return modelName;
+        }
       }
+    } catch (error) {
+      this.logger.warn('Failed to list models, using fallback', error);
     }
 
-    // Fallback to default
-    this.logger.warn('No preferred model available, using gemini-pro');
-    return 'gemini-pro';
-  }
-
-  /**
-   * Get model name with caching
-   */
-  private async getModelName(): Promise<string> {
-    if (!this.cachedModelName) {
-      this.cachedModelName = await this.getBestModel();
-    }
-    return this.cachedModelName;
+    // Fallback to flash model (better free tier quotas)
+    this.cachedModelName = 'gemini-1.5-flash';
+    this.logger.log('Using fallback model: gemini-1.5-flash');
+    return 'gemini-1.5-flash';
   }
 
   /**
@@ -218,11 +258,8 @@ export class ChatbotGeminiService {
       maxRetries?: number;
     } = {},
   ): Promise<string> {
-    const {
-      temperature = 0.7,
-      maxTokens = 500,
-      maxRetries = 3,
-    } = options;
+    let { temperature = 0.7, maxTokens = 500 } = options;
+    const { maxRetries = 3 } = options;
 
     if (!this.apiKey) {
       throw new Error('GEMINI_CHATBOT_API_KEY is not configured');
@@ -230,7 +267,7 @@ export class ChatbotGeminiService {
 
     await this.waitForRateLimit();
 
-    const modelName = await this.getModelName();
+    const modelName = await this.getAvailableModel();
     const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
 
     const requestBody: GeminiRequest = {
@@ -245,37 +282,201 @@ export class ChatbotGeminiService {
       },
     };
 
+    this.logger.log(
+      `📤 Sending chatbot prompt to Gemini API (${prompt.length} chars, maxTokens: ${maxTokens})`,
+    );
+
     let lastError: Error | null = null;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        if (attempt > 0) {
+          const delay = Math.min(attempt * 1.0, 5.0) * 1000;
+          this.logger.log(
+            `Retrying after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
         const response = await this.axiosInstance.post<GeminiResponse>(
           url,
           requestBody,
         );
 
+        this.logger.log(`📥 API Response status: ${response.status}`);
+
         if (response.data.error) {
+          this.logger.error(
+            `Gemini API error: ${JSON.stringify(response.data.error)}`,
+          );
           throw new Error(
             `Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`,
           );
         }
 
-        const text =
-          response.data.candidates?.[0]?.content?.parts?.[0]?.text ||
-          'No response generated';
-
-        return text;
-      } catch (error) {
-        lastError = error as Error;
-        this.logger.error(
-          `Chatbot Gemini API request failed (attempt ${attempt}/${maxRetries}):`,
-          error instanceof Error ? error.message : String(error),
-        );
-
-        if (attempt < maxRetries) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 * attempt),
+        if (
+          !response.data.candidates ||
+          response.data.candidates.length === 0
+        ) {
+          this.logger.error(
+            `❌ No candidates in response: ${JSON.stringify(response.data, null, 2)}`,
           );
+          throw new Error('No candidates in Gemini API response');
+        }
+
+        const candidate = response.data.candidates[0];
+
+        // Log usage metadata if available
+        if (response.data.usageMetadata) {
+          const usage = response.data.usageMetadata;
+          const outputTokens =
+            (usage.totalTokenCount || 0) - (usage.promptTokenCount || 0);
+          this.logger.log(
+            `📊 Token usage: ${usage.promptTokenCount} prompt + ${outputTokens} output = ${usage.totalTokenCount} total`,
+          );
+          if (usage.thoughtsTokenCount) {
+            const actualOutputTokens =
+              outputTokens - (usage.thoughtsTokenCount || 0);
+            this.logger.warn(
+              `⚠️ Thoughts tokens used: ${usage.thoughtsTokenCount} (leaves only ${actualOutputTokens} tokens for actual output)`,
+            );
+          }
+        }
+
+        const text = candidate.content?.parts?.[0]?.text;
+
+        // Check for finish reason
+        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+          this.logger.warn(`⚠️ Finish reason: ${candidate.finishReason}`);
+
+          if (
+            candidate.finishReason === 'MAX_TOKENS' &&
+            (!text || text.trim().length === 0) &&
+            attempt < maxRetries - 1
+          ) {
+            const thoughtsTokens =
+              response.data.usageMetadata?.thoughtsTokenCount || 0;
+            const newMaxTokens = Math.min(
+              Math.max(thoughtsTokens + 500, maxTokens * 2),
+              8000,
+            );
+            this.logger.log(
+              `🔄 MAX_TOKENS hit with no output. Increasing maxOutputTokens from ${maxTokens} to ${newMaxTokens} for retry`,
+            );
+            requestBody.generationConfig = {
+              ...requestBody.generationConfig,
+              maxOutputTokens: newMaxTokens,
+            };
+            maxTokens = newMaxTokens;
+            continue;
+          }
+        }
+
+        if (!text || text.trim().length === 0) {
+          this.logger.error(`❌ Empty text in response`);
+          throw new Error('Empty response from Gemini API');
+        }
+
+        this.logger.log(
+          `✅ Successfully generated chatbot text (${text.length} chars)`,
+        );
+        return text.trim();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const errorData = error.response?.data as any;
+
+          if (status === 429) {
+            const errorMessage = errorData?.error?.message || '';
+            const errorCode = errorData?.error?.code;
+            const isDailyQuota =
+              errorMessage.includes('RESOURCE_EXHAUSTED') ||
+              errorMessage.includes('quota') ||
+              errorMessage.includes('daily limit') ||
+              errorMessage.includes('exceeded') ||
+              errorCode === 429;
+
+            if (isDailyQuota && errorMessage.toLowerCase().includes('quota')) {
+              this.logger.error(
+                `❌ Daily quota exhausted (429). Error: ${errorMessage}. Do not retry.`,
+              );
+              throw new Error(
+                `AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`,
+              );
+            }
+
+            // Parse retry delay from API response
+            let retryAfter = 60000; // Default 60 seconds
+
+            if (errorData?.error?.details) {
+              for (const detail of errorData.error.details) {
+                if (
+                  detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+                ) {
+                  const retryDelay = detail.retryDelay as any;
+                  if (typeof retryDelay === 'string') {
+                    const match = retryDelay.match(/(\d+\.?\d*)\s*s/);
+                    if (match) {
+                      retryAfter =
+                        Math.ceil(parseFloat(match[1]) * 1000) + 2000;
+                    } else {
+                      const seconds = parseFloat(
+                        retryDelay.replace(/[^0-9.]/g, ''),
+                      );
+                      if (!isNaN(seconds)) {
+                        retryAfter = Math.ceil(seconds * 1000) + 2000;
+                      }
+                    }
+                  } else if (
+                    typeof retryDelay === 'object' &&
+                    retryDelay.seconds
+                  ) {
+                    retryAfter = Math.ceil(retryDelay.seconds * 1000) + 2000;
+                  }
+                }
+              }
+            }
+
+            if (errorData?.error?.message) {
+              const messageMatch =
+                errorData.error.message.match(/retry in ([\d.]+)s/i);
+              if (messageMatch) {
+                const seconds = parseFloat(messageMatch[1]);
+                if (!isNaN(seconds)) {
+                  retryAfter = Math.ceil(seconds * 1000) + 2000;
+                }
+              }
+            }
+
+            retryAfter = Math.max(retryAfter, 30000);
+
+            this.logger.warn(
+              `Rate limit exceeded (429). Waiting ${Math.ceil(retryAfter / 1000)}s before retry (attempt ${attempt + 1}/${maxRetries})...`,
+            );
+
+            if (attempt < maxRetries - 1) {
+              this.requestTimestamps = [];
+              await new Promise((resolve) => setTimeout(resolve, retryAfter));
+              continue;
+            } else {
+              throw new Error(
+                `Rate limit exceeded. Please try again in ${Math.ceil(retryAfter / 1000)} seconds.`,
+              );
+            }
+          } else if (
+            status &&
+            status >= 400 &&
+            status < 500 &&
+            status !== 429
+          ) {
+            throw lastError;
+          }
+        }
+
+        if (attempt === maxRetries - 1) {
+          throw lastError;
         }
       }
     }
@@ -295,11 +496,7 @@ export class ChatbotGeminiService {
       maxRetries?: number;
     } = {},
   ): Promise<string> {
-    const {
-      temperature = 0.7,
-      maxTokens = 500,
-      maxRetries = 3,
-    } = options;
+    const { temperature = 0.7, maxTokens = 500, maxRetries = 3 } = options;
 
     if (!this.apiKey) {
       throw new Error('GEMINI_CHATBOT_API_KEY is not configured');
@@ -308,7 +505,7 @@ export class ChatbotGeminiService {
     await this.waitForRateLimit();
 
     // Use vision model for image analysis
-    const modelName = 'gemini-1.5-flash';
+    const modelName = await this.getAvailableModel();
     const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
 
     // Extract base64 data and mime type
@@ -331,13 +528,13 @@ export class ChatbotGeminiService {
       contents: [
         {
           parts: [
-            { text: prompt },
             {
               inlineData: {
                 mimeType,
                 data: base64Data,
               },
             },
+            { text: prompt },
           ],
         },
       ],
@@ -347,37 +544,112 @@ export class ChatbotGeminiService {
       },
     };
 
+    this.logger.log(
+      `📤 Analyzing image with Gemini Vision API (${base64Data.length} bytes, prompt: ${prompt.length} chars)`,
+    );
+
     let lastError: Error | null = null;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
+        if (attempt > 0) {
+          const delay = Math.min(attempt * 1.0, 5.0) * 1000;
+          this.logger.log(
+            `Retrying image analysis after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
         const response = await this.axiosInstance.post<GeminiResponse>(
           url,
           requestBody,
         );
 
         if (response.data.error) {
+          this.logger.error(
+            `Gemini Vision API error: ${JSON.stringify(response.data.error)}`,
+          );
           throw new Error(
             `Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`,
           );
         }
 
-        const text =
-          response.data.candidates?.[0]?.content?.parts?.[0]?.text ||
-          'No response generated';
+        if (
+          !response.data.candidates ||
+          response.data.candidates.length === 0
+        ) {
+          throw new Error('No candidates in Gemini Vision API response');
+        }
 
-        return text;
-      } catch (error) {
-        lastError = error as Error;
-        this.logger.error(
-          `Chatbot Gemini image analysis failed (attempt ${attempt}/${maxRetries}):`,
-          error instanceof Error ? error.message : String(error),
+        const candidate = response.data.candidates[0];
+        const text = candidate.content?.parts?.[0]?.text;
+
+        if (!text || text.trim().length === 0) {
+          throw new Error('Empty response from Gemini Vision API');
+        }
+
+        this.logger.log(
+          `✅ Successfully analyzed image (${text.length} chars)`,
         );
+        return text.trim();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
 
-        if (attempt < maxRetries) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 * attempt),
-          );
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const errorData = error.response?.data;
+
+          if (status === 429) {
+            const errorMessage = errorData?.error?.message || '';
+
+            if ((errorMessage as string).toLowerCase().includes('quota')) {
+              this.logger.error(
+                `❌ Daily quota exhausted for image analysis. Error: ${errorMessage}`,
+              );
+              throw new Error(
+                `AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`,
+              );
+            }
+
+            let retryAfter = 60000;
+
+            if (errorData?.error?.details) {
+              for (const detail of errorData.error.details) {
+                if (
+                  detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+                ) {
+                  const retryDelay = detail.retryDelay;
+                  if (typeof retryDelay === 'string') {
+                    const match = retryDelay.match(/(\d+\.?\d*)\s*s/);
+                    if (match) {
+                      retryAfter =
+                        Math.ceil(parseFloat(match[1]) * 1000) + 2000;
+                    }
+                  }
+                }
+              }
+            }
+
+            retryAfter = Math.max(retryAfter, 30000);
+
+            this.logger.warn(
+              `Rate limit exceeded for image analysis. Waiting ${Math.ceil(retryAfter / 1000)}s...`,
+            );
+
+            if (attempt < maxRetries - 1) {
+              this.requestTimestamps = [];
+              await new Promise((resolve) => setTimeout(resolve, retryAfter));
+              continue;
+            } else {
+              throw new Error(
+                `Rate limit exceeded. Please try again in ${Math.ceil(retryAfter / 1000)} seconds.`,
+              );
+            }
+          }
+        }
+
+        if (attempt === maxRetries - 1) {
+          throw lastError;
         }
       }
     }
@@ -403,7 +675,7 @@ export class ChatbotGeminiService {
         prompt,
         options,
       });
-      this.processQueue();
+      void this.processQueue();
     });
   }
 
@@ -427,7 +699,7 @@ export class ChatbotGeminiService {
         imageData,
         options,
       });
-      this.processQueue();
+      void this.processQueue();
     });
   }
 }

@@ -1,5 +1,5 @@
 import { Model } from 'mongoose';
-import { GeminiService } from '../ai/gemini.service';
+import { ChatbotGeminiService } from './chatbot-gemini.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UserDocument } from '../users/schemas/user.schema';
 import { PetDocument } from '../pets/schemas/pet.schema';
@@ -10,14 +10,14 @@ import { ChatbotImageAnalysisDto } from './dto/chatbot-image-analysis.dto';
 import { ChatbotResponseDto } from './dto/chatbot-response.dto';
 import { ChatbotHistoryResponseDto } from './dto/chatbot-history-response.dto';
 export declare class ChatbotService {
-    private readonly geminiService;
+    private readonly chatbotGeminiService;
     private readonly cloudinaryService;
     private readonly userModel;
     private readonly petModel;
     private readonly medicalHistoryModel;
     private readonly chatbotMessageModel;
     private readonly logger;
-    constructor(geminiService: GeminiService, cloudinaryService: CloudinaryService, userModel: Model<UserDocument>, petModel: Model<PetDocument>, medicalHistoryModel: Model<MedicalHistoryDocument>, chatbotMessageModel: Model<ChatbotMessageDocument>);
+    constructor(chatbotGeminiService: ChatbotGeminiService, cloudinaryService: CloudinaryService, userModel: Model<UserDocument>, petModel: Model<PetDocument>, medicalHistoryModel: Model<MedicalHistoryDocument>, chatbotMessageModel: Model<ChatbotMessageDocument>);
     private getUserPetsWithHistory;
     private buildPetInformationString;
     private getConversationHistory;
