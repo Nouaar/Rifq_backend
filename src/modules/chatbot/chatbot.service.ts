@@ -3,7 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { GeminiService } from '../ai/gemini.service';
+import { ChatbotGeminiService } from './chatbot-gemini.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UserDocument } from '../users/schemas/user.schema';
 import { Pet, PetDocument } from '../pets/schemas/pet.schema';
@@ -28,7 +28,7 @@ export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
 
   constructor(
-    private readonly geminiService: GeminiService,
+    private readonly chatbotGeminiService: ChatbotGeminiService,
     private readonly cloudinaryService: CloudinaryService,
     @InjectModel('User')
     private readonly userModel: Model<UserDocument>,
@@ -358,7 +358,7 @@ User Question: ${userMessage}`;
           `Processing chatbot message with image for user ${userId} (${chatbotMessageDto.message.length} chars)`,
         );
 
-        response = await this.geminiService.analyzeImage(
+        response = await this.chatbotGeminiService.analyzeImage(
           chatbotMessageDto.image as string,
           imagePrompt,
           {
@@ -379,7 +379,7 @@ User Question: ${userMessage}`;
           `Processing chatbot message for user ${userId} (${chatbotMessageDto.message.length} chars)`,
         );
 
-        response = await this.geminiService.generateText(prompt, {
+        response = await this.chatbotGeminiService.generateText(prompt, {
           temperature: 0.7,
           maxTokens: 500, // Reduced for shorter responses
         });
@@ -548,7 +548,7 @@ USER'S PETS INFORMATION:`;
         `Analyzing image for user ${userId} (${imageAnalysisDto.image.length} chars base64)`,
       );
 
-      const response = await this.geminiService.analyzeImage(
+      const response = await this.chatbotGeminiService.analyzeImage(
         imageAnalysisDto.image,
         prompt,
         {

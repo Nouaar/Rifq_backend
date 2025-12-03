@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ChatbotController } from './chatbot.controller';
 import { ChatbotService } from './chatbot.service';
+import { ChatbotGeminiService } from './chatbot-gemini.service';
 import { AiModule } from '../ai/ai.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 import { Pet, PetSchema } from '../pets/schemas/pet.schema';
@@ -29,7 +30,7 @@ import {
     ]),
   ],
   controllers: [ChatbotController],
-  providers: [ChatbotService],
+  providers: [ChatbotService, ChatbotGeminiService],
   exports: [ChatbotService],
 })
 export class ChatbotModule {}
