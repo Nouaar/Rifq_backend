@@ -76,7 +76,12 @@ export class ChatbotGeminiService {
     reject: (error: Error) => void;
     prompt: string;
     imageData?: string;
-    options: { temperature?: number; maxTokens?: number; maxRetries?: number };
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      maxRetries?: number;
+      petPhotos?: Array<{ petName: string; photoBase64: string }>;
+    };
   }> = [];
   private isProcessingQueue = false;
 
@@ -174,14 +179,37 @@ export class ChatbotGeminiService {
       if (!request) break;
 
       try {
-        const result = request.imageData
-          ? await this.analyzeImageInternal(
+        if (request.imageData) {
+          // Check if this is a request with pet photos
+          if (request.options.petPhotos && request.options.petPhotos.length > 0) {
+            // Try to parse as JSON to get user image, otherwise use as-is
+            let userImageData: string;
+            try {
+              const parsed = JSON.parse(request.imageData);
+              userImageData = parsed.userImage || request.imageData;
+            } catch {
+              userImageData = request.imageData;
+            }
+            
+            const result = await this.analyzeImageWithPetPhotosInternal(
+              userImageData,
+              request.prompt,
+              request.options.petPhotos,
+              request.options,
+            );
+            request.resolve(result);
+          } else {
+            const result = await this.analyzeImageInternal(
               request.imageData,
               request.prompt,
               request.options,
-            )
-          : await this.generateTextInternal(request.prompt, request.options);
-        request.resolve(result);
+            );
+            request.resolve(result);
+          }
+        } else {
+          const result = await this.generateTextInternal(request.prompt, request.options);
+          request.resolve(result);
+        }
       } catch (error) {
         request.reject(error as Error);
       }
@@ -658,6 +686,223 @@ export class ChatbotGeminiService {
   }
 
   /**
+   * Internal method to analyze image with pet photos for comparison
+   */
+  private async analyzeImageWithPetPhotosInternal(
+    userImageData: string,
+    prompt: string,
+    petPhotos: Array<{ petName: string; photoBase64: string }>,
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      maxRetries?: number;
+    } = {},
+  ): Promise<string> {
+    const { temperature = 0.7, maxTokens = 500, maxRetries = 3 } = options;
+
+    if (!this.apiKey) {
+      throw new Error('GEMINI_CHATBOT_API_KEY is not configured');
+    }
+
+    await this.waitForRateLimit();
+
+    const modelName = await this.getAvailableModel();
+    const url = `${this.baseURL}/models/${modelName}:generateContent?key=${this.apiKey}`;
+
+    // Extract base64 data and mime type for user image
+    let userBase64Data: string;
+    let userMimeType: string;
+
+    if (userImageData.startsWith('data:')) {
+      const matches = userImageData.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        throw new Error('Invalid base64 image format');
+      }
+      userMimeType = matches[1];
+      userBase64Data = matches[2];
+    } else {
+      userBase64Data = userImageData;
+      userMimeType = 'image/jpeg';
+    }
+
+    // Build parts array with user image, pet photos, and prompt
+    const parts: Array<{
+      text?: string;
+      inlineData?: {
+        mimeType: string;
+        data: string;
+      };
+    }> = [];
+
+    // Add user's uploaded image first
+    parts.push({
+      inlineData: {
+        mimeType: userMimeType,
+        data: userBase64Data,
+      },
+    });
+
+    // Add pet reference photos with labels
+    for (const { petName, photoBase64 } of petPhotos) {
+      let petBase64Data: string;
+      let petMimeType: string;
+
+      if (photoBase64.startsWith('data:')) {
+        const matches = photoBase64.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          petMimeType = matches[1];
+          petBase64Data = matches[2];
+        } else {
+          continue; // Skip invalid pet photo
+        }
+      } else {
+        petBase64Data = photoBase64;
+        petMimeType = 'image/jpeg';
+      }
+
+      // Add text label before each pet photo
+      parts.push({
+        text: `Reference photo of ${petName}:`,
+      });
+
+      // Add pet photo
+      parts.push({
+        inlineData: {
+          mimeType: petMimeType,
+          data: petBase64Data,
+        },
+      });
+    }
+
+    // Add prompt text at the end
+    parts.push({ text: prompt });
+
+    const requestBody: GeminiRequest = {
+      contents: [
+        {
+          parts,
+        },
+      ],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+      },
+    };
+
+    this.logger.log(
+      `📤 Analyzing image with ${petPhotos.length} pet reference photos (user image: ${userBase64Data.length} bytes, prompt: ${prompt.length} chars)`,
+    );
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = Math.min(attempt * 1.0, 5.0) * 1000;
+          this.logger.log(
+            `Retrying image analysis with pet photos after ${delay}ms (attempt ${attempt + 1}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+
+        const response = await this.axiosInstance.post<GeminiResponse>(
+          url,
+          requestBody,
+        );
+
+        if (response.data.error) {
+          this.logger.error(
+            `Gemini Vision API error: ${JSON.stringify(response.data.error)}`,
+          );
+          throw new Error(
+            `Gemini API error: ${response.data.error.message} (code: ${response.data.error.code})`,
+          );
+        }
+
+        if (
+          !response.data.candidates ||
+          response.data.candidates.length === 0
+        ) {
+          throw new Error('No candidates in Gemini Vision API response');
+        }
+
+        const candidate = response.data.candidates[0];
+        const text = candidate.content?.parts?.[0]?.text;
+
+        if (!text || text.trim().length === 0) {
+          throw new Error('Empty response from Gemini Vision API');
+        }
+
+        this.logger.log(
+          `✅ Successfully analyzed image with pet photos (${text.length} chars)`,
+        );
+        return text.trim();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        if (axios.isAxiosError(error)) {
+          const status = error.response?.status;
+          const errorData = error.response?.data;
+
+          if (status === 429) {
+            const errorMessage = errorData?.error?.message || '';
+
+            if ((errorMessage as string).toLowerCase().includes('quota')) {
+              this.logger.error(
+                `❌ Daily quota exhausted for image analysis. Error: ${errorMessage}`,
+              );
+              throw new Error(
+                `AI_DAILY_QUOTA_EXCEEDED: Daily quota exceeded. Please try again tomorrow or contact support.`,
+              );
+            }
+
+            let retryAfter = 60000;
+
+            if (errorData?.error?.details) {
+              for (const detail of errorData.error.details) {
+                if (
+                  detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+                ) {
+                  const retryDelay = detail.retryDelay;
+                  if (typeof retryDelay === 'string') {
+                    const match = retryDelay.match(/(\d+\.?\d*)\s*s/);
+                    if (match) {
+                      retryAfter =
+                        Math.ceil(parseFloat(match[1]) * 1000) + 2000;
+                    }
+                  }
+                }
+              }
+            }
+
+            retryAfter = Math.max(retryAfter, 30000);
+
+            this.logger.warn(
+              `Rate limit exceeded for image analysis. Waiting ${Math.ceil(retryAfter / 1000)}s...`,
+            );
+
+            if (attempt < maxRetries - 1) {
+              this.requestTimestamps = [];
+              await new Promise((resolve) => setTimeout(resolve, retryAfter));
+              continue;
+            } else {
+              throw new Error(
+                `Rate limit exceeded. Please try again in ${Math.ceil(retryAfter / 1000)} seconds.`,
+              );
+            }
+          }
+        }
+
+        if (attempt === maxRetries - 1) {
+          throw lastError;
+        }
+      }
+    }
+
+    throw lastError || new Error('Failed to analyze image with pet photos after retries');
+  }
+
+  /**
    * Generate text response from prompt (queued)
    */
   async generateText(
@@ -698,6 +943,40 @@ export class ChatbotGeminiService {
         prompt,
         imageData,
         options,
+      });
+      void this.processQueue();
+    });
+  }
+
+  /**
+   * Analyze image with pet photos for comparison (queued)
+   */
+  async analyzeImageWithPetPhotos(
+    userImageData: string,
+    prompt: string,
+    petPhotos: Array<{ petName: string; photoBase64: string }>,
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      maxRetries?: number;
+    } = {},
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      // Create a combined image data structure
+      const combinedImageData = {
+        userImage: userImageData,
+        petPhotos,
+      };
+      
+      this.requestQueue.push({
+        resolve,
+        reject,
+        prompt,
+        imageData: JSON.stringify(combinedImageData), // Store as JSON string to pass through queue
+        options: {
+          ...options,
+          petPhotos, // Also store separately for easy access
+        },
       });
       void this.processQueue();
     });

@@ -25,6 +25,8 @@ export declare class ChatbotService {
     private buildContextualPrompt;
     private buildDefaultPrompt;
     processMessage(userId: string, chatbotMessageDto: ChatbotMessageDto): Promise<ChatbotResponseDto>;
+    private downloadImageAsBase64;
+    private getPetPhotosForComparison;
     private buildImageAnalysisPrompt;
     private buildContextualPromptWithHistory;
     private buildDefaultPromptWithHistory;

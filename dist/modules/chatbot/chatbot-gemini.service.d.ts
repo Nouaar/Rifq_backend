@@ -17,12 +17,21 @@ export declare class ChatbotGeminiService {
     private getAvailableModel;
     private generateTextInternal;
     private analyzeImageInternal;
+    private analyzeImageWithPetPhotosInternal;
     generateText(prompt: string, options?: {
         temperature?: number;
         maxTokens?: number;
         maxRetries?: number;
     }): Promise<string>;
     analyzeImage(imageData: string, prompt: string, options?: {
+        temperature?: number;
+        maxTokens?: number;
+        maxRetries?: number;
+    }): Promise<string>;
+    analyzeImageWithPetPhotos(userImageData: string, prompt: string, petPhotos: Array<{
+        petName: string;
+        photoBase64: string;
+    }>, options?: {
         temperature?: number;
         maxTokens?: number;
         maxRetries?: number;

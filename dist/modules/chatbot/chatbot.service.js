@@ -11,12 +11,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var ChatbotService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatbotService = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const axios_1 = __importDefault(require("axios"));
 const chatbot_gemini_service_1 = require("./chatbot-gemini.service");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 const pet_schema_1 = require("../pets/schemas/pet.schema");
@@ -140,7 +144,7 @@ let ChatbotService = ChatbotService_1 = class ChatbotService {
                 .find({ owner: userId })
                 .populate('medicalHistory')
                 .limit(5);
-            let prompt = `You are a helpful veterinary AI assistant for the Rifq pet care app. You provide friendly, accurate, and practical advice about pet care, health, and wellness.
+            let prompt = `You are a Vet AI assistant for the Rifq pet care app. You provide veterinary advice including diagnoses, recommendations, tips, and descriptions about pet health and care. You can analyze symptoms, suggest possible conditions, and provide guidance based on the pet's profile. However, always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation and treatment.
 
 User's Pets Information:`;
             if (pets.length > 0) {
@@ -186,7 +190,7 @@ User's Pets Information:`;
             if (context) {
                 prompt += `\n\nAdditional Context: ${context}`;
             }
-            prompt += `\n\nProvide a helpful, accurate, and friendly response. If the question is about a specific pet, reference the pet by name. Always remind users to consult with a veterinarian for serious health concerns.`;
+            prompt += `\n\nIMPORTANT: Provide veterinary advice including possible diagnoses, recommendations, tips, and descriptions. If the question is about a specific pet, reference the pet by name. You can suggest possible conditions based on symptoms, but always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation, proper diagnosis, and treatment.`;
             return prompt;
         }
         catch (error) {
@@ -195,13 +199,13 @@ User's Pets Information:`;
         }
     }
     buildDefaultPrompt(userMessage, context) {
-        let prompt = `You are a helpful veterinary AI assistant for the Rifq pet care app. You provide friendly, accurate, and practical advice about pet care, health, and wellness.
+        let prompt = `You are a Vet AI assistant for the Rifq pet care app. You provide veterinary advice including diagnoses, recommendations, tips, and descriptions about pet health and care. You can analyze symptoms, suggest possible conditions, and provide guidance.
 
 User Question: ${userMessage}`;
         if (context) {
             prompt += `\n\nContext: ${context}`;
         }
-        prompt += `\n\nProvide a helpful, accurate, and friendly response. Always remind users to consult with a veterinarian for serious health concerns.`;
+        prompt += `\n\nProvide veterinary advice including possible diagnoses, recommendations, tips, and descriptions. Always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation and proper treatment.`;
         return prompt;
     }
     async processMessage(userId, chatbotMessageDto) {
@@ -228,9 +232,11 @@ User Question: ${userMessage}`;
             await userMessage.save();
             let response;
             if (chatbotMessageDto.image) {
-                const imagePrompt = await this.buildImageAnalysisPrompt(userId, chatbotMessageDto.message, history, chatbotMessageDto.context);
-                this.logger.log(`Processing chatbot message with image for user ${userId} (${chatbotMessageDto.message.length} chars)`);
-                response = await this.chatbotGeminiService.analyzeImage(chatbotMessageDto.image, imagePrompt, {
+                const petsWithHistory = await this.getUserPetsWithHistory(userId);
+                const petPhotos = await this.getPetPhotosForComparison(petsWithHistory);
+                const imagePrompt = await this.buildImageAnalysisPrompt(userId, chatbotMessageDto.message, history, chatbotMessageDto.context, petPhotos);
+                this.logger.log(`Processing chatbot message with image for user ${userId} (${chatbotMessageDto.message.length} chars, ${petPhotos.length} pet photos for comparison)`);
+                response = await this.chatbotGeminiService.analyzeImageWithPetPhotos(chatbotMessageDto.image, imagePrompt, petPhotos, {
                     temperature: 0.7,
                     maxTokens: 500,
                 });
@@ -259,13 +265,59 @@ User Question: ${userMessage}`;
             throw error;
         }
     }
-    async buildImageAnalysisPrompt(userId, userMessage, history, context) {
+    async downloadImageAsBase64(imageUrl) {
+        try {
+            const response = await axios_1.default.get(imageUrl, {
+                responseType: 'arraybuffer',
+                timeout: 10000,
+            });
+            const buffer = Buffer.from(response.data);
+            const base64 = buffer.toString('base64');
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            return `data:${contentType};base64,${base64}`;
+        }
+        catch (error) {
+            this.logger.warn(`Failed to download pet photo from ${imageUrl}:`, error);
+            return null;
+        }
+    }
+    async getPetPhotosForComparison(petsWithHistory) {
+        const petPhotos = [];
+        for (const { pet } of petsWithHistory) {
+            if (pet.photo) {
+                const photoBase64 = await this.downloadImageAsBase64(pet.photo);
+                if (photoBase64) {
+                    petPhotos.push({
+                        petName: pet.name,
+                        photoBase64,
+                    });
+                    this.logger.log(`Downloaded photo for pet: ${pet.name}`);
+                }
+            }
+        }
+        return petPhotos;
+    }
+    async buildImageAnalysisPrompt(userId, userMessage, history, context, petPhotos) {
         try {
             const petsWithHistory = await this.getUserPetsWithHistory(userId);
-            let prompt = `You are a veterinary AI assistant. Analyze this pet image and answer the user's question: "${userMessage}"
+            let prompt = `You are a Vet AI assistant for the Rifq pet care app. You will receive:
+1. A user-uploaded image of a pet
+${petPhotos && petPhotos.length > 0 ? `2. ${petPhotos.length} reference photo(s) of the user's registered pets (for comparison and identification)` : ''}
+
+Your task:
+- FIRST: Compare the user's uploaded image with the reference pet photos to identify which pet it is (if it matches one of the registered pets)
+- THEN: Analyze the image and provide veterinary insights including possible diagnoses, recommendations, tips, and descriptions
+- You can identify potential health issues, suggest conditions, and provide guidance based on what you observe
 
 USER'S PETS INFORMATION:`;
             prompt += this.buildPetInformationString(petsWithHistory);
+            if (petPhotos && petPhotos.length > 0) {
+                prompt += `\n\nREFERENCE PET PHOTOS FOR COMPARISON:`;
+                petPhotos.forEach(({ petName }) => {
+                    prompt += `\n- ${petName} (reference photo provided below)`;
+                });
+                prompt += `\n\nCompare the user's uploaded image with these reference photos to identify which pet it is.`;
+            }
             prompt += `\n\nUSER QUESTION: "${userMessage}"`;
             if (history.length > 0) {
                 prompt += this.buildConversationContext(history);
@@ -275,22 +327,22 @@ USER'S PETS INFORMATION:`;
                 prompt += `Additional Context: ${context}\n\n`;
             }
             prompt += `IMPORTANT: Provide a CONCISE response (3-5 sentences maximum) that:
+- FIRST identifies which pet this is by comparing with reference photos (if available): "This appears to be [Pet Name] based on the comparison with their profile photo"
 - Directly answers: "${userMessage}"
-- Briefly describes what you see in the image
-- References specific pet by name if you can identify which pet it is
-- Gives 1-2 key recommendations based on the pet's medical history if relevant
-- Reminds to consult a vet for serious concerns`;
+- Describes what you observe in the image and suggests possible diagnoses or conditions
+- Provides 1-2 recommendations or tips based on the identified pet's medical history if relevant
+- Reminds users that this is AI assistance and they should consult a licensed veterinarian for confirmation and treatment`;
             return prompt;
         }
         catch (error) {
             this.logger.error('Error building image analysis prompt:', error);
-            return `Analyze this pet image and answer: "${userMessage}". Provide health insights and recommendations.`;
+            return `You are a Vet AI assistant. Analyze this pet image and provide veterinary insights including possible diagnoses, observations, recommendations, and tips. Answer: "${userMessage}". Remind users that this is AI assistance and they should consult a licensed veterinarian for confirmation and treatment.`;
         }
     }
     async buildContextualPromptWithHistory(userId, userMessage, history, context) {
         try {
             const petsWithHistory = await this.getUserPetsWithHistory(userId);
-            let prompt = `You are a helpful veterinary AI assistant for the Rifq pet care app. You provide friendly, accurate, and practical advice about pet care, health, and wellness.
+            let prompt = `You are a Vet AI assistant for the Rifq pet care app. You provide veterinary advice including diagnoses, recommendations, tips, and descriptions about pet health and care. You can analyze symptoms, suggest possible conditions, and provide guidance based on the pet's profile. However, always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation and treatment.
 
 USER'S PETS INFORMATION:`;
             prompt += this.buildPetInformationString(petsWithHistory);
@@ -301,7 +353,7 @@ USER'S PETS INFORMATION:`;
             if (context) {
                 prompt += `\n\nAdditional Context: ${context}`;
             }
-            prompt += `\n\nIMPORTANT: Provide a CONCISE and helpful response (2-4 sentences maximum). Be direct and to the point. If the question is about a specific pet, reference the pet by name and consider their medical history (vaccinations, conditions, medications) when providing advice. Always remind users to consult with a veterinarian for serious health concerns.`;
+            prompt += `\n\nIMPORTANT: Provide a CONCISE response (2-4 sentences maximum) with veterinary advice including possible diagnoses, recommendations, tips, and descriptions. Be direct and to the point. If the question is about a specific pet, reference the pet by name and consider their medical history (vaccinations, conditions, medications) when providing advice. You can suggest possible conditions based on symptoms, but always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation and proper treatment.`;
             return prompt;
         }
         catch (error) {
@@ -310,7 +362,7 @@ USER'S PETS INFORMATION:`;
         }
     }
     buildDefaultPromptWithHistory(userMessage, history, context) {
-        let prompt = `You are a helpful veterinary AI assistant for the Rifq pet care app. You provide friendly, accurate, and practical advice about pet care, health, and wellness.
+        let prompt = `You are a Vet AI assistant for the Rifq pet care app. You provide veterinary advice including diagnoses, recommendations, tips, and descriptions about pet health and care. You can analyze symptoms, suggest possible conditions, and provide guidance.
 
 User Question: ${userMessage}`;
         if (history.length > 0) {
@@ -319,31 +371,45 @@ User Question: ${userMessage}`;
         if (context) {
             prompt += `\n\nAdditional Context: ${context}`;
         }
-        prompt += `\n\nIMPORTANT: Provide a CONCISE and helpful response (2-4 sentences maximum). Be direct and to the point. Always remind users to consult with a veterinarian for serious health concerns.`;
+        prompt += `\n\nIMPORTANT: Provide a CONCISE response (2-4 sentences maximum) with veterinary advice including possible diagnoses, recommendations, tips, and descriptions. Be direct and to the point. You can suggest possible conditions based on symptoms, but always remind users that this is AI assistance and they should consult with a licensed veterinarian for confirmation and proper treatment.`;
         return prompt;
     }
     async analyzeImage(userId, imageAnalysisDto) {
         try {
             const petsWithHistory = await this.getUserPetsWithHistory(userId);
-            let prompt = `You are a veterinary AI assistant. Analyze this pet image and provide health insights, observations, and recommendations.
+            const petPhotos = await this.getPetPhotosForComparison(petsWithHistory);
+            let prompt = `You are a Vet AI assistant for the Rifq pet care app. You will receive:
+1. A user-uploaded image of a pet
+${petPhotos && petPhotos.length > 0 ? `2. ${petPhotos.length} reference photo(s) of the user's registered pets (for comparison and identification)` : ''}
+
+Your task:
+- FIRST: Compare the user's uploaded image with the reference pet photos to identify which pet it is (if it matches one of the registered pets)
+- THEN: Analyze the image and provide veterinary insights including possible diagnoses, observations, recommendations, and tips
 
 USER'S PETS INFORMATION:`;
             prompt += this.buildPetInformationString(petsWithHistory);
+            if (petPhotos && petPhotos.length > 0) {
+                prompt += `\n\nREFERENCE PET PHOTOS FOR COMPARISON:`;
+                petPhotos.forEach(({ petName }) => {
+                    prompt += `\n- ${petName} (reference photo provided below)`;
+                });
+                prompt += `\n\nCompare the user's uploaded image with these reference photos to identify which pet it is.`;
+            }
             if (imageAnalysisDto.prompt) {
                 prompt += `\n\nUSER QUESTION: ${imageAnalysisDto.prompt}`;
             }
             else {
                 prompt += `\n\nAnalyze this pet image and provide health insights, observations, and any recommendations.`;
             }
-            prompt += `\n\nIMPORTANT: Provide a CONCISE analysis (3-5 sentences maximum):
-- Briefly describe what you observe in the image
-- Reference specific pet by name if you can identify which pet it is
-- Mention 1-2 key health concerns or positive indicators
-- Consider the pet's medical history (vaccinations, conditions, medications) when relevant
-- Give 1-2 actionable recommendations
-- Remind to consult a veterinarian for serious concerns`;
-            this.logger.log(`Analyzing image for user ${userId} (${imageAnalysisDto.image.length} chars base64)`);
-            const response = await this.chatbotGeminiService.analyzeImage(imageAnalysisDto.image, prompt, {
+            prompt += `\n\nIMPORTANT: Provide a CONCISE analysis (3-5 sentences maximum) with veterinary insights:
+- FIRST identifies which pet this is by comparing with reference photos (if available): "This appears to be [Pet Name] based on the comparison with their profile photo"
+- Describe what you observe in the image and suggest possible diagnoses or conditions
+- Mention 1-2 health observations or potential issues you identify
+- Consider the identified pet's medical history (vaccinations, conditions, medications) when providing advice
+- Give 1-2 recommendations or tips
+- Remind users that this is AI assistance and they should consult a licensed veterinarian for confirmation and treatment`;
+            this.logger.log(`Analyzing image for user ${userId} (${imageAnalysisDto.image.length} chars base64, ${petPhotos.length} pet photos for comparison)`);
+            const response = await this.chatbotGeminiService.analyzeImageWithPetPhotos(imageAnalysisDto.image, prompt, petPhotos, {
                 temperature: 0.7,
                 maxTokens: 500,
             });
