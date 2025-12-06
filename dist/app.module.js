@@ -24,6 +24,7 @@ const notifications_module_1 = require("./modules/notifications/notifications.mo
 const ai_module_1 = require("./modules/ai/ai.module");
 const fcm_module_1 = require("./modules/fcm/fcm.module");
 const chatbot_module_1 = require("./modules/chatbot/chatbot.module");
+const community_module_1 = require("./modules/community/community.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -44,6 +45,7 @@ exports.AppModule = AppModule = __decorate([
             ai_module_1.AiModule,
             fcm_module_1.FcmModule,
             chatbot_module_1.ChatbotModule,
+            community_module_1.CommunityModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

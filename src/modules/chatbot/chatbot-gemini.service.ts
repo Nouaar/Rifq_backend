@@ -181,7 +181,10 @@ export class ChatbotGeminiService {
       try {
         if (request.imageData) {
           // Check if this is a request with pet photos
-          if (request.options.petPhotos && request.options.petPhotos.length > 0) {
+          if (
+            request.options.petPhotos &&
+            request.options.petPhotos.length > 0
+          ) {
             // Try to parse as JSON to get user image, otherwise use as-is
             let userImageData: string;
             try {
@@ -190,7 +193,7 @@ export class ChatbotGeminiService {
             } catch {
               userImageData = request.imageData;
             }
-            
+
             const result = await this.analyzeImageWithPetPhotosInternal(
               userImageData,
               request.prompt,
@@ -207,7 +210,10 @@ export class ChatbotGeminiService {
             request.resolve(result);
           }
         } else {
-          const result = await this.generateTextInternal(request.prompt, request.options);
+          const result = await this.generateTextInternal(
+            request.prompt,
+            request.options,
+          );
           request.resolve(result);
         }
       } catch (error) {
@@ -414,7 +420,7 @@ export class ChatbotGeminiService {
 
         if (axios.isAxiosError(error)) {
           const status = error.response?.status;
-          const errorData = error.response?.data as any;
+          const errorData = error.response?.data;
 
           if (status === 429) {
             const errorMessage = errorData?.error?.message || '';
@@ -443,7 +449,7 @@ export class ChatbotGeminiService {
                 if (
                   detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
                 ) {
-                  const retryDelay = detail.retryDelay as any;
+                  const retryDelay = detail.retryDelay;
                   if (typeof retryDelay === 'string') {
                     const match = retryDelay.match(/(\d+\.?\d*)\s*s/);
                     if (match) {
@@ -899,7 +905,10 @@ export class ChatbotGeminiService {
       }
     }
 
-    throw lastError || new Error('Failed to analyze image with pet photos after retries');
+    throw (
+      lastError ||
+      new Error('Failed to analyze image with pet photos after retries')
+    );
   }
 
   /**
@@ -967,7 +976,7 @@ export class ChatbotGeminiService {
         userImage: userImageData,
         petPhotos,
       };
-      
+
       this.requestQueue.push({
         resolve,
         reject,

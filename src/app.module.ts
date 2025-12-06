@@ -16,6 +16,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AiModule } from './modules/ai/ai.module';
 import { FcmModule } from './modules/fcm/fcm.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { CommunityModule } from './modules/community/community.module';
 
 @Module({
   imports: [
@@ -28,11 +29,12 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
     PetSittersModule,
     MailModule,
     MessagesModule,
-    NotificationsModule, // Import before BookingsModule since BookingsModule depends on it
+    NotificationsModule,
     BookingsModule,
     AiModule,
     FcmModule,
     ChatbotModule,
+    CommunityModule,
   ],
   controllers: [AppController],
   providers: [AppService],
