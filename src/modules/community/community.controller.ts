@@ -32,7 +32,7 @@ export class CommunityController {
   @UseInterceptors(FileInterceptor('petImage'))
   async createPost(
     @Request() req,
-    @Body('caption') caption: string,
+    @Body() body: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
@@ -47,7 +47,7 @@ export class CommunityController {
 
     const createPostDto: CreatePostDto = {
       petImage: uploadResult.secure_url,
-      caption,
+      caption: body.caption || null,
     };
 
     const post = await this.communityService.createPost(

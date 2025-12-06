@@ -24,14 +24,14 @@ let CommunityController = class CommunityController {
         this.communityService = communityService;
         this.cloudinaryService = cloudinaryService;
     }
-    async createPost(req, caption, file) {
+    async createPost(req, body, file) {
         if (!file) {
             throw new common_1.BadRequestException('Pet image is required');
         }
         const uploadResult = await this.cloudinaryService.uploadImage(file, 'community');
         const createPostDto = {
             petImage: uploadResult.secure_url,
-            caption,
+            caption: body.caption || null,
         };
         const post = await this.communityService.createPost(req.user.userId, req.user.name, req.user.profileImage, createPostDto);
         return {
@@ -70,10 +70,10 @@ __decorate([
     (0, common_1.Post)('posts'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('petImage')),
     __param(0, (0, common_1.Request)()),
-    __param(1, (0, common_1.Body)('caption')),
+    __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFile)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:paramtypes", [Object, Object, Object]),
     __metadata("design:returntype", Promise)
 ], CommunityController.prototype, "createPost", null);
 __decorate([

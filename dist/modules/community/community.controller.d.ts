@@ -5,7 +5,7 @@ export declare class CommunityController {
     private readonly communityService;
     private readonly cloudinaryService;
     constructor(communityService: CommunityService, cloudinaryService: CloudinaryService);
-    createPost(req: any, caption: string, file: Express.Multer.File): Promise<{
+    createPost(req: any, body: any, file: Express.Multer.File): Promise<{
         message: string;
         post: import("./schemas/post.schema").Post;
     }>;

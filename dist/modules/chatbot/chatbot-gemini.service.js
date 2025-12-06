@@ -84,7 +84,8 @@ let ChatbotGeminiService = ChatbotGeminiService_1 = class ChatbotGeminiService {
                 break;
             try {
                 if (request.imageData) {
-                    if (request.options.petPhotos && request.options.petPhotos.length > 0) {
+                    if (request.options.petPhotos &&
+                        request.options.petPhotos.length > 0) {
                         let userImageData;
                         try {
                             const parsed = JSON.parse(request.imageData);
@@ -552,7 +553,8 @@ let ChatbotGeminiService = ChatbotGeminiService_1 = class ChatbotGeminiService {
                 }
             }
         }
-        throw lastError || new Error('Failed to analyze image with pet photos after retries');
+        throw (lastError ||
+            new Error('Failed to analyze image with pet photos after retries'));
     }
     async generateText(prompt, options = {}) {
         return new Promise((resolve, reject) => {
