@@ -25,41 +25,60 @@ let CommunityController = class CommunityController {
         this.cloudinaryService = cloudinaryService;
     }
     async createPost(req, body, file) {
-        if (!file) {
-            throw new common_1.BadRequestException('Pet image is required');
+        try {
+            console.log('Create post request received');
+            console.log('User:', req.user);
+            console.log('Body:', body);
+            console.log('File:', file ? 'File present' : 'No file');
+            if (!file) {
+                throw new common_1.BadRequestException('Pet image is required');
+            }
+            console.log('Uploading to Cloudinary...');
+            const uploadResult = await this.cloudinaryService.uploadImage(file, 'community');
+            console.log('Cloudinary upload successful:', uploadResult.secure_url);
+            const createPostDto = {
+                petImage: uploadResult.secure_url,
+                caption: body.caption || null,
+            };
+            console.log('Creating post in database...');
+            const post = await this.communityService.createPost(req.user._id.toString(), req.user.name, req.user.profileImage, createPostDto);
+            console.log('Post created successfully');
+            return {
+                message: 'Post created successfully',
+                post,
+            };
         }
-        const uploadResult = await this.cloudinaryService.uploadImage(file, 'community');
-        const createPostDto = {
-            petImage: uploadResult.secure_url,
-            caption: body.caption || null,
-        };
-        const post = await this.communityService.createPost(req.user.userId, req.user.name, req.user.profileImage, createPostDto);
-        return {
-            message: 'Post created successfully',
-            post,
-        };
+        catch (error) {
+            console.error('Error creating post:', error);
+            throw error;
+        }
     }
     async getPosts(req, page = '1', limit = '10') {
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
-        return this.communityService.getPosts(pageNum, limitNum, req.user.userId);
+        return this.communityService.getPosts(pageNum, limitNum, req.user._id.toString());
+    }
+    async getMyPosts(req, page = '1', limit = '10') {
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        return this.communityService.getMyPosts(pageNum, limitNum, req.user._id.toString());
     }
     async reactToPost(req, postId, reactPostDto) {
-        const post = await this.communityService.reactToPost(postId, req.user.userId, reactPostDto);
+        const post = await this.communityService.reactToPost(postId, req.user._id.toString(), reactPostDto);
         return {
             message: 'Reaction added successfully',
             post,
         };
     }
     async removeReaction(req, postId, reactionType) {
-        const post = await this.communityService.removeReaction(postId, req.user.userId, reactionType);
+        const post = await this.communityService.removeReaction(postId, req.user._id.toString(), reactionType);
         return {
             message: 'Reaction removed successfully',
             post,
         };
     }
     async deletePost(req, postId) {
-        await this.communityService.deletePost(postId, req.user.userId);
+        await this.communityService.deletePost(postId, req.user._id.toString());
         return {
             message: 'Post deleted successfully',
         };
@@ -85,6 +104,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", Promise)
 ], CommunityController.prototype, "getPosts", null);
+__decorate([
+    (0, common_1.Get)('my-posts'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "getMyPosts", null);
 __decorate([
     (0, common_1.Post)('posts/:postId/react'),
     __param(0, (0, common_1.Request)()),

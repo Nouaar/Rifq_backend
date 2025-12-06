@@ -39,6 +39,47 @@ let CommunityService = class CommunityService {
         });
         return newPost.save();
     }
+    async getMyPosts(page = 1, limit = 10, userId) {
+        const skip = (page - 1) * limit;
+        const [posts, total] = await Promise.all([
+            this.postModel
+                .find({ userId })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean()
+                .exec(),
+            this.postModel.countDocuments({ userId }).exec(),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        const transformedPosts = posts.map((post) => {
+            const userReaction = post.userReactions?.find((r) => r.userId === userId);
+            const reactions = post.reactions instanceof Map
+                ? post.reactions
+                : new Map(Object.entries(post.reactions || {}));
+            return {
+                _id: post._id,
+                userId: post.userId,
+                userName: post.userName,
+                userProfileImage: post.userProfileImage,
+                petImage: post.petImage,
+                caption: post.caption,
+                likes: reactions?.get('like') || 0,
+                loves: reactions?.get('love') || 0,
+                hahas: reactions?.get('haha') || 0,
+                angries: reactions?.get('angry') || 0,
+                cries: reactions?.get('cry') || 0,
+                userReaction: userReaction?.reactionType || null,
+                createdAt: post.createdAt,
+            };
+        });
+        return {
+            posts: transformedPosts,
+            total,
+            page,
+            totalPages,
+        };
+    }
     async getPosts(page = 1, limit = 10, currentUserId) {
         const skip = (page - 1) * limit;
         const [posts, total] = await Promise.all([

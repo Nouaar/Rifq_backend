@@ -15,6 +15,12 @@ export declare class CommunityController {
         page: number;
         totalPages: number;
     }>;
+    getMyPosts(req: any, page?: string, limit?: string): Promise<{
+        posts: any[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }>;
     reactToPost(req: any, postId: string, reactPostDto: ReactPostDto): Promise<{
         message: string;
         post: import("./schemas/post.schema").Post;

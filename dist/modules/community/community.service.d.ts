@@ -6,6 +6,12 @@ export declare class CommunityService {
     private postModel;
     constructor(postModel: Model<PostDocument>);
     createPost(userId: string, userName: string, userProfileImage: string, createPostDto: CreatePostDto): Promise<Post>;
+    getMyPosts(page: number, limit: number, userId: string): Promise<{
+        posts: any[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }>;
     getPosts(page?: number, limit?: number, currentUserId?: string): Promise<{
         posts: any[];
         total: number;

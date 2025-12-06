@@ -35,32 +35,46 @@ export class CommunityController {
     @Body() body: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('Pet image is required');
+    try {
+      console.log('Create post request received');
+      console.log('User:', req.user);
+      console.log('Body:', body);
+      console.log('File:', file ? 'File present' : 'No file');
+
+      if (!file) {
+        throw new BadRequestException('Pet image is required');
+      }
+
+      // Upload image to Cloudinary
+      console.log('Uploading to Cloudinary...');
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        file,
+        'community',
+      );
+      console.log('Cloudinary upload successful:', uploadResult.secure_url);
+
+      const createPostDto: CreatePostDto = {
+        petImage: uploadResult.secure_url,
+        caption: body.caption || null,
+      };
+
+      console.log('Creating post in database...');
+      const post = await this.communityService.createPost(
+        req.user._id.toString(),
+        req.user.name,
+        req.user.profileImage,
+        createPostDto,
+      );
+      console.log('Post created successfully');
+
+      return {
+        message: 'Post created successfully',
+        post,
+      };
+    } catch (error) {
+      console.error('Error creating post:', error);
+      throw error;
     }
-
-    // Upload image to Cloudinary
-    const uploadResult = await this.cloudinaryService.uploadImage(
-      file,
-      'community',
-    );
-
-    const createPostDto: CreatePostDto = {
-      petImage: uploadResult.secure_url,
-      caption: body.caption || null,
-    };
-
-    const post = await this.communityService.createPost(
-      req.user.userId,
-      req.user.name,
-      req.user.profileImage,
-      createPostDto,
-    );
-
-    return {
-      message: 'Post created successfully',
-      post,
-    };
   }
 
   @Get('posts')
@@ -72,7 +86,27 @@ export class CommunityController {
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
 
-    return this.communityService.getPosts(pageNum, limitNum, req.user.userId);
+    return this.communityService.getPosts(
+      pageNum,
+      limitNum,
+      req.user._id.toString(),
+    );
+  }
+
+  @Get('my-posts')
+  async getMyPosts(
+    @Request() req,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    return this.communityService.getMyPosts(
+      pageNum,
+      limitNum,
+      req.user._id.toString(),
+    );
   }
 
   @Post('posts/:postId/react')
@@ -83,7 +117,7 @@ export class CommunityController {
   ) {
     const post = await this.communityService.reactToPost(
       postId,
-      req.user.userId,
+      req.user._id.toString(),
       reactPostDto,
     );
 
@@ -101,7 +135,7 @@ export class CommunityController {
   ) {
     const post = await this.communityService.removeReaction(
       postId,
-      req.user.userId,
+      req.user._id.toString(),
       reactionType,
     );
 
@@ -113,7 +147,7 @@ export class CommunityController {
 
   @Delete('posts/:postId')
   async deletePost(@Request() req, @Param('postId') postId: string) {
-    await this.communityService.deletePost(postId, req.user.userId);
+    await this.communityService.deletePost(postId, req.user._id.toString());
 
     return {
       message: 'Post deleted successfully',
