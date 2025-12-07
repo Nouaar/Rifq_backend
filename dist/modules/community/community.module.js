@@ -12,6 +12,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const community_controller_1 = require("./community.controller");
 const community_service_1 = require("./community.service");
 const post_schema_1 = require("./schemas/post.schema");
+const comment_schema_1 = require("./schemas/comment.schema");
 const cloudinary_module_1 = require("../cloudinary/cloudinary.module");
 let CommunityModule = class CommunityModule {
 };
@@ -19,7 +20,10 @@ exports.CommunityModule = CommunityModule;
 exports.CommunityModule = CommunityModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: post_schema_1.Post.name, schema: post_schema_1.PostSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: post_schema_1.Post.name, schema: post_schema_1.PostSchema },
+                { name: comment_schema_1.Comment.name, schema: comment_schema_1.CommentSchema },
+            ]),
             cloudinary_module_1.CloudinaryModule,
         ],
         controllers: [community_controller_1.CommunityController],

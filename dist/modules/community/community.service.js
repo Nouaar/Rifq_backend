@@ -17,9 +17,11 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const post_schema_1 = require("./schemas/post.schema");
+const comment_schema_1 = require("./schemas/comment.schema");
 let CommunityService = class CommunityService {
-    constructor(postModel) {
+    constructor(postModel, commentModel) {
         this.postModel = postModel;
+        this.commentModel = commentModel;
     }
     async createPost(userId, userName, userProfileImage, createPostDto) {
         const newPost = new this.postModel({
@@ -152,6 +154,20 @@ let CommunityService = class CommunityService {
         }
         return this.getPostWithUserReaction(post, userId);
     }
+    async updatePost(postId, userId, updatePostDto) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        if (post.userId.toString() !== userId) {
+            throw new common_1.ForbiddenException('You can only update your own posts');
+        }
+        if (updatePostDto.caption !== undefined) {
+            post.caption = updatePostDto.caption;
+        }
+        await post.save();
+        return this.getPostWithUserReaction(post, userId);
+    }
     async deletePost(postId, userId) {
         const post = await this.postModel.findById(postId).exec();
         if (!post) {
@@ -181,11 +197,70 @@ let CommunityService = class CommunityService {
             createdAt: post.createdAt,
         };
     }
+    async createComment(postId, userId, userName, userProfileImage, createCommentDto) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        const newComment = new this.commentModel({
+            postId,
+            userId,
+            userName,
+            userProfileImage,
+            content: createCommentDto.content,
+        });
+        return newComment.save();
+    }
+    async getComments(postId, page = 1, limit = 50) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        const skip = (page - 1) * limit;
+        const [comments, total] = await Promise.all([
+            this.commentModel
+                .find({ postId })
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean()
+                .exec(),
+            this.commentModel.countDocuments({ postId }).exec(),
+        ]);
+        const totalPages = Math.ceil(total / limit);
+        const transformedComments = comments.map((comment) => ({
+            _id: comment._id,
+            postId: comment.postId.toString(),
+            userId: comment.userId.toString(),
+            userName: comment.userName,
+            userProfileImage: comment.userProfileImage,
+            content: comment.content,
+            createdAt: comment.createdAt,
+        }));
+        return {
+            comments: transformedComments,
+            total,
+            page,
+            totalPages,
+        };
+    }
+    async deleteComment(commentId, userId) {
+        const comment = await this.commentModel.findById(commentId).exec();
+        if (!comment) {
+            throw new common_1.NotFoundException('Comment not found');
+        }
+        if (comment.userId.toString() !== userId) {
+            throw new common_1.ForbiddenException('You can only delete your own comments');
+        }
+        await this.commentModel.findByIdAndDelete(commentId).exec();
+    }
 };
 exports.CommunityService = CommunityService;
 exports.CommunityService = CommunityService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(post_schema_1.Post.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(comment_schema_1.Comment.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model])
 ], CommunityService);
 //# sourceMappingURL=community.service.js.map

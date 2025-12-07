@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const community_service_1 = require("./community.service");
 const react_post_dto_1 = require("./dto/react-post.dto");
+const create_comment_dto_1 = require("./dto/create-comment.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let CommunityController = class CommunityController {
@@ -83,6 +84,24 @@ let CommunityController = class CommunityController {
             message: 'Post deleted successfully',
         };
     }
+    async getComments(req, postId, page = '1', limit = '50') {
+        const pageNum = parseInt(page, 10);
+        const limitNum = parseInt(limit, 10);
+        return this.communityService.getComments(postId, pageNum, limitNum);
+    }
+    async createComment(req, postId, createCommentDto) {
+        const comment = await this.communityService.createComment(postId, req.user._id.toString(), req.user.name, req.user.profileImage, createCommentDto);
+        return {
+            message: 'Comment created successfully',
+            comment,
+        };
+    }
+    async deleteComment(req, postId, commentId) {
+        await this.communityService.deleteComment(commentId, req.user._id.toString());
+        return {
+            message: 'Comment deleted successfully',
+        };
+    }
 };
 exports.CommunityController = CommunityController;
 __decorate([
@@ -139,6 +158,34 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], CommunityController.prototype, "deletePost", null);
+__decorate([
+    (0, common_1.Get)('posts/:postId/comments'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __param(2, (0, common_1.Query)('page')),
+    __param(3, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "getComments", null);
+__decorate([
+    (0, common_1.Post)('posts/:postId/comments'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_comment_dto_1.CreateCommentDto]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "createComment", null);
+__decorate([
+    (0, common_1.Delete)('posts/:postId/comments/:commentId'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __param(2, (0, common_1.Param)('commentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "deleteComment", null);
 exports.CommunityController = CommunityController = __decorate([
     (0, common_1.Controller)('community'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

@@ -7,12 +7,18 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Post, PostDocument } from './schemas/post.schema';
+import { Comment, CommentDocument } from './schemas/comment.schema';
 import { CreatePostDto } from './dto/create-post.dto';
 import { ReactPostDto } from './dto/react-post.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 
 @Injectable()
 export class CommunityService {
-  constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {}
+  constructor(
+    @InjectModel(Post.name) private postModel: Model<PostDocument>,
+    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+  ) {}
 
   async createPost(
     userId: string,
@@ -220,6 +226,29 @@ export class CommunityService {
     return this.getPostWithUserReaction(post, userId);
   }
 
+  async updatePost(
+    postId: string,
+    userId: string,
+    updatePostDto: UpdatePostDto,
+  ): Promise<Post> {
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    // Only allow the post owner to update
+    if (post.userId.toString() !== userId) {
+      throw new ForbiddenException('You can only update your own posts');
+    }
+
+    if (updatePostDto.caption !== undefined) {
+      post.caption = updatePostDto.caption;
+    }
+
+    await post.save();
+    return this.getPostWithUserReaction(post, userId);
+  }
+
   async deletePost(postId: string, userId: string): Promise<void> {
     const post = await this.postModel.findById(postId).exec();
     if (!post) {
@@ -253,5 +282,95 @@ export class CommunityService {
       userReaction: userReaction?.reactionType || null,
       createdAt: post.createdAt,
     };
+  }
+
+  // MARK: - Comments
+
+  async createComment(
+    postId: string,
+    userId: string,
+    userName: string,
+    userProfileImage: string,
+    createCommentDto: CreateCommentDto,
+  ): Promise<Comment> {
+    // Verify post exists
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const newComment = new this.commentModel({
+      postId,
+      userId,
+      userName,
+      userProfileImage,
+      content: createCommentDto.content,
+    });
+
+    return newComment.save();
+  }
+
+  async getComments(
+    postId: string,
+    page: number = 1,
+    limit: number = 50,
+  ): Promise<{
+    comments: any[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    // Verify post exists
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [comments, total] = await Promise.all([
+      this.commentModel
+        .find({ postId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.commentModel.countDocuments({ postId }).exec(),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    // Transform comments
+    const transformedComments = comments.map((comment: any) => ({
+      _id: comment._id,
+      postId: comment.postId.toString(),
+      userId: comment.userId.toString(),
+      userName: comment.userName,
+      userProfileImage: comment.userProfileImage,
+      content: comment.content,
+      createdAt: comment.createdAt,
+    }));
+
+    return {
+      comments: transformedComments,
+      total,
+      page,
+      totalPages,
+    };
+  }
+
+  async deleteComment(commentId: string, userId: string): Promise<void> {
+    const comment = await this.commentModel.findById(commentId).exec();
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // Only allow the comment owner to delete
+    if (comment.userId.toString() !== userId) {
+      throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    await this.commentModel.findByIdAndDelete(commentId).exec();
   }
 }

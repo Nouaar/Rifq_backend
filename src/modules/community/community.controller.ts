@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -17,6 +18,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CommunityService } from './community.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { ReactPostDto } from './dto/react-post.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
@@ -151,6 +154,57 @@ export class CommunityController {
 
     return {
       message: 'Post deleted successfully',
+    };
+  }
+
+  // MARK: - Comments
+
+  @Get('posts/:postId/comments')
+  async getComments(
+    @Request() req,
+    @Param('postId') postId: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+  ) {
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    return this.communityService.getComments(postId, pageNum, limitNum);
+  }
+
+  @Post('posts/:postId/comments')
+  async createComment(
+    @Request() req,
+    @Param('postId') postId: string,
+    @Body() createCommentDto: CreateCommentDto,
+  ) {
+    const comment = await this.communityService.createComment(
+      postId,
+      req.user._id.toString(),
+      req.user.name,
+      req.user.profileImage,
+      createCommentDto,
+    );
+
+    return {
+      message: 'Comment created successfully',
+      comment,
+    };
+  }
+
+  @Delete('posts/:postId/comments/:commentId')
+  async deleteComment(
+    @Request() req,
+    @Param('postId') postId: string,
+    @Param('commentId') commentId: string,
+  ) {
+    await this.communityService.deleteComment(
+      commentId,
+      req.user._id.toString(),
+    );
+
+    return {
+      message: 'Comment deleted successfully',
     };
   }
 }

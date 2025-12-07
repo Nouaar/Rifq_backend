@@ -4,11 +4,15 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CommunityController } from './community.controller';
 import { CommunityService } from './community.service';
 import { Post, PostSchema } from './schemas/post.schema';
+import { Comment, CommentSchema } from './schemas/comment.schema';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Post.name, schema: PostSchema }]),
+    MongooseModule.forFeature([
+      { name: Post.name, schema: PostSchema },
+      { name: Comment.name, schema: CommentSchema },
+    ]),
     CloudinaryModule,
   ],
   controllers: [CommunityController],

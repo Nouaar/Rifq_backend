@@ -1,5 +1,6 @@
 import { CommunityService } from './community.service';
 import { ReactPostDto } from './dto/react-post.dto';
+import { CreateCommentDto } from './dto/create-comment.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export declare class CommunityController {
     private readonly communityService;
@@ -30,6 +31,19 @@ export declare class CommunityController {
         post: import("./schemas/post.schema").Post;
     }>;
     deletePost(req: any, postId: string): Promise<{
+        message: string;
+    }>;
+    getComments(req: any, postId: string, page?: string, limit?: string): Promise<{
+        comments: any[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }>;
+    createComment(req: any, postId: string, createCommentDto: CreateCommentDto): Promise<{
+        message: string;
+        comment: import("./schemas/comment.schema").Comment;
+    }>;
+    deleteComment(req: any, postId: string, commentId: string): Promise<{
         message: string;
     }>;
 }
