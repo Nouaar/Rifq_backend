@@ -991,6 +991,7 @@ export class SubscriptionsService {
     userId: string,
     customerId: string,
     role: string,
+    paymentMethodId: string,
   ): Promise<void> {
     console.log(`💳 Creating subscription after payment for user ${userId}`);
 
@@ -1006,10 +1007,54 @@ export class SubscriptionsService {
     }
 
     try {
+      // Attach the payment method to the customer and set as default
+      if (paymentMethodId) {
+        try {
+          // Retrieve payment method to check its current state
+          const paymentMethod = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+          
+          // Attach payment method to customer if not already attached
+          if (!paymentMethod.customer || paymentMethod.customer !== customerId) {
+            await this.stripe.paymentMethods.attach(paymentMethodId, {
+              customer: customerId,
+            });
+            console.log(`✅ Attached payment method ${paymentMethodId} to customer ${customerId}`);
+          } else {
+            console.log(`ℹ️ Payment method ${paymentMethodId} already attached to customer ${customerId}`);
+          }
+
+          // Set as default payment method for the customer
+          await this.stripe.customers.update(customerId, {
+            invoice_settings: {
+              default_payment_method: paymentMethodId,
+            },
+          });
+          console.log(`✅ Set payment method ${paymentMethodId} as default for customer ${customerId}`);
+        } catch (pmError: any) {
+          // If payment method is already attached, that's fine - continue
+          if (pmError.code === 'resource_already_exists' || pmError.message?.includes('already attached')) {
+            console.log(`ℹ️ Payment method already attached, setting as default...`);
+            try {
+              await this.stripe.customers.update(customerId, {
+                invoice_settings: {
+                  default_payment_method: paymentMethodId,
+                },
+              });
+            } catch (updateError: any) {
+              console.warn(`⚠️ Could not set default payment method: ${updateError.message}`);
+            }
+          } else {
+            console.warn(`⚠️ Could not attach payment method: ${pmError.message}`);
+            // Continue anyway - subscription creation might still work
+          }
+        }
+      }
+
       // Create Stripe subscription now that payment is complete
       const stripeSubscription = await this.stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: this.subscriptionPriceId }],
+        default_payment_method: paymentMethodId || undefined,
       });
 
       // Update our subscription record
@@ -1021,9 +1066,10 @@ export class SubscriptionsService {
       subscription.role = role;
       await subscription.save();
 
-      // Update user's hasActiveSubscription flag
+      // Update user's hasActiveSubscription flag and role
       await this.userModel.findByIdAndUpdate(userId, {
         hasActiveSubscription: true,
+        role: role,
       });
 
       console.log(`✅ Created and activated subscription ${stripeSubscription.id} for user ${userId}`);

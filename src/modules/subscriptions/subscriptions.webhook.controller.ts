@@ -117,14 +117,21 @@ export class SubscriptionsWebhookController {
 
     const userId = paymentIntent.metadata?.userId;
     const subscriptionRole = paymentIntent.metadata?.subscriptionRole || 'premium';
+    const paymentMethodId = paymentIntent.payment_method as string;
     
-    if (userId) {
+    if (userId && paymentIntent.customer) {
       // Create Stripe subscription now that payment is confirmed
       await this.subscriptionsService.createSubscriptionAfterPayment(
         userId,
         paymentIntent.customer as string,
         subscriptionRole,
+        paymentMethodId,
       );
+    } else {
+      console.warn('⚠️ Missing userId or customer in PaymentIntent:', {
+        userId,
+        customer: paymentIntent.customer,
+      });
     }
   }
 
