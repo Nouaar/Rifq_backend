@@ -12,6 +12,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const schedule_1 = require("@nestjs/schedule");
 const subscriptions_service_1 = require("./subscriptions.service");
 const subscriptions_controller_1 = require("./subscriptions.controller");
+const subscriptions_webhook_controller_1 = require("./subscriptions.webhook.controller");
 const subscriptions_scheduler_1 = require("./subscriptions.scheduler");
 const subscription_schema_1 = require("./schemas/subscription.schema");
 const user_schema_1 = require("../users/schemas/user.schema");
@@ -35,7 +36,7 @@ exports.SubscriptionsModule = SubscriptionsModule = __decorate([
             pet_sitters_module_1.PetSittersModule,
             mail_module_1.MailModule,
         ],
-        controllers: [subscriptions_controller_1.SubscriptionsController],
+        controllers: [subscriptions_controller_1.SubscriptionsController, subscriptions_webhook_controller_1.SubscriptionsWebhookController],
         providers: [subscriptions_service_1.SubscriptionsService, subscriptions_scheduler_1.SubscriptionsScheduler],
         exports: [subscriptions_service_1.SubscriptionsService],
     })

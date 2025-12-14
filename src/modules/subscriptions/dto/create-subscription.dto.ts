@@ -3,12 +3,12 @@
 import { IsString, IsEnum, IsOptional } from 'class-validator';
 
 export class CreateSubscriptionDto {
-  @IsString()
-  @IsEnum(['vet', 'sitter'])
-  role: 'vet' | 'sitter';
-
-  @IsString()
   @IsOptional()
+  @IsEnum(['vet', 'sitter', 'premium'])
+  role?: 'vet' | 'sitter' | 'premium'; // Optional - user chooses after payment
+
+  @IsOptional()
+  @IsString()
   paymentMethodId?: string;
 }
 

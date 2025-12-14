@@ -26,12 +26,17 @@ export declare class SubscriptionsService {
         message: string;
     }>;
     renew(userId: string): Promise<SubscriptionResponseDto>;
+    updateSubscriptionRole(userId: string, role: string): Promise<SubscriptionResponseDto>;
     cancel(userId: string): Promise<CancelSubscriptionResponseDto>;
     reactivate(userId: string): Promise<SubscriptionResponseDto>;
     handleStripeWebhook(event: Stripe.Event): Promise<void>;
+    private handlePaymentIntentSucceeded;
+    activatePendingSubscription(userId: string): Promise<SubscriptionResponseDto>;
     private updateSubscriptionFromStripe;
     private handleSubscriptionDeleted;
     checkAndExpireSubscriptions(): Promise<void>;
     checkAndCancelExpiredSubscriptions(): Promise<void>;
     private mapToResponseDto;
+    activateSubscriptionByStripeId(stripeSubscriptionId: string): Promise<void>;
+    createSubscriptionAfterPayment(userId: string, customerId: string, role: string): Promise<void>;
 }

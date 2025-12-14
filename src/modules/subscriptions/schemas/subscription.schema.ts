@@ -21,7 +21,7 @@ export class Subscription extends Document {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, unique: true })
   userId: Types.ObjectId;
 
-  @Prop({ required: true, enum: ['vet', 'sitter'] })
+  @Prop({ required: true, enum: ['vet', 'sitter', 'premium'] })
   role: string;
 
   @Prop({

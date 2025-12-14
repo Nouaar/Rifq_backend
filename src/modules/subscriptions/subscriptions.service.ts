@@ -48,9 +48,11 @@ export class SubscriptionsService {
         '⚠️ STRIPE_SECRET_KEY not found. Stripe features will be disabled.',
       );
     } else {
+      console.log('✅ Initializing Stripe with secret key...');
       this.stripe = new Stripe(stripeSecretKey, {
         apiVersion: '2025-11-17.clover',
       });
+      console.log('✅ Stripe initialized successfully');
     }
 
     // Get subscription price ID from config (or use default test price)
@@ -58,6 +60,7 @@ export class SubscriptionsService {
       'STRIPE_SUBSCRIPTION_PRICE_ID',
       'price_test_monthly_30', // Default test price ID
     );
+    console.log(`📋 Using Stripe Price ID: ${this.subscriptionPriceId}`);
   }
 
   /**
@@ -73,36 +76,46 @@ export class SubscriptionsService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if user already has an active, expires_soon, or pending subscription
+    // Check if user already has an active or expires_soon subscription
+    // Check for any existing active subscription
     const existingSubscription = await this.subscriptionModel.findOne({
       userId: user._id,
       status: {
         $in: [
           SubscriptionStatus.ACTIVE,
           SubscriptionStatus.EXPIRES_SOON,
-          SubscriptionStatus.PENDING,
         ],
       },
     });
 
     if (existingSubscription) {
       throw new ConflictException(
-        'User already has an active or pending subscription',
+        'User already has an active subscription',
       );
     }
 
-    // Check if user has a canceled or expired subscription - we'll reuse it
+    // No role required during subscription creation - user will choose role after payment
+
+    // Check if user has a canceled, expired, or pending subscription - we'll reuse it
+    // This allows users to resubscribe after cancellation or abandoned payments
     const canceledOrExpiredSubscription = await this.subscriptionModel.findOne({
       userId: user._id,
       status: {
-        $in: [SubscriptionStatus.CANCELED, SubscriptionStatus.EXPIRED],
+        $in: [
+          SubscriptionStatus.CANCELED, 
+          SubscriptionStatus.EXPIRED,
+          SubscriptionStatus.PENDING, // Include pending to handle abandoned payments
+        ],
       },
     });
 
     // In test mode, create subscription without Stripe (for development)
-    const isTestMode =
-      this.configService.get<string>('NODE_ENV') !== 'production' ||
-      !this.stripe;
+    // Force production mode to always use Stripe for testing payment flow
+    const isTestMode = !this.stripe;  // Only test mode if Stripe is not initialized
+
+    console.log(`🔍 Subscription Creation Mode: ${isTestMode ? 'TEST MODE' : 'PRODUCTION MODE'}`);
+    console.log(`🔍 NODE_ENV: ${this.configService.get<string>('NODE_ENV')}`);
+    console.log(`🔍 Stripe initialized: ${!!this.stripe}`);
 
     let stripeSubscriptionId: string | undefined;
     let stripeCustomerId: string | undefined;
@@ -111,12 +124,14 @@ export class SubscriptionsService {
     let currentPeriodEnd: Date;
 
     if (isTestMode || !this.stripe) {
-      // Test mode: Create subscription without Stripe
+      // Test mode: Create subscription without Stripe - activate immediately
+      console.log('⚠️ Running in TEST MODE - Subscription activated immediately');
       currentPeriodStart = new Date();
       currentPeriodEnd = new Date();
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1); // 1 month from now
     } else {
       // Production: Create Stripe customer and subscription
+      console.log('💳 Running in PRODUCTION MODE - Creating Stripe subscription...');
       try {
         // Create or retrieve Stripe customer
         let customer: Stripe.Customer;
@@ -145,30 +160,30 @@ export class SubscriptionsService {
 
         stripeCustomerId = customer.id;
 
-        // Create subscription
-        const subscription = await this.stripe.subscriptions.create({
+        // Create a PaymentIntent instead of subscription for one-time payment
+        // After payment succeeds, webhook will create the actual subscription
+        const paymentIntent = await this.stripe.paymentIntents.create({
+          amount: 3000, // $30.00 in cents
+          currency: 'usd',
           customer: customer.id,
-          items: [{ price: this.subscriptionPriceId }],
-          payment_behavior: 'default_incomplete',
-          payment_settings: { save_default_payment_method: 'on_subscription' },
-          expand: ['latest_invoice.payment_intent'],
+          setup_future_usage: 'off_session',
+          metadata: {
+            userId: user._id.toString(),
+            subscriptionRole: createSubscriptionDto.role || 'premium',
+          },
+          automatic_payment_methods: {
+            enabled: true,
+          },
         });
 
-        stripeSubscriptionId = subscription.id;
-        const sub = subscription as any; // Type assertion for Stripe subscription
-        if (sub.current_period_start) {
-          currentPeriodStart = new Date(sub.current_period_start * 1000);
-        }
-        if (sub.current_period_end) {
-          currentPeriodEnd = new Date(sub.current_period_end * 1000);
-        }
+        clientSecret = paymentIntent.client_secret || undefined;
+        
+        // Set temporary period (will be updated when subscription is created after payment)
+        currentPeriodStart = new Date();
+        currentPeriodEnd = new Date();
+        currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
-        // Get client secret for PaymentSheet
-        const invoice = sub.latest_invoice;
-        if (invoice?.payment_intent) {
-          const paymentIntent = invoice.payment_intent;
-          clientSecret = paymentIntent.client_secret || undefined;
-        }
+        console.log(`💳 Created PaymentIntent ${paymentIntent.id} for user ${user._id}`);
       } catch (error) {
         console.error('Stripe subscription creation error:', error);
         throw new BadRequestException(
@@ -179,10 +194,12 @@ export class SubscriptionsService {
 
     // If there's a canceled/expired subscription, update it instead of creating a new one
     let savedSubscription;
+    const finalStatus = (isTestMode || !this.stripe) ? SubscriptionStatus.ACTIVE : SubscriptionStatus.PENDING;
+    
     if (canceledOrExpiredSubscription) {
-      // Update existing canceled/expired subscription - always make it PENDING (requires email verification)
-      canceledOrExpiredSubscription.role = createSubscriptionDto.role;
-      canceledOrExpiredSubscription.status = SubscriptionStatus.PENDING;
+      // Update existing canceled/expired subscription
+      canceledOrExpiredSubscription.role = createSubscriptionDto.role || 'premium'; // Default to 'premium'
+      canceledOrExpiredSubscription.status = finalStatus;
       canceledOrExpiredSubscription.stripeSubscriptionId = stripeSubscriptionId;
       canceledOrExpiredSubscription.stripeCustomerId = stripeCustomerId;
       canceledOrExpiredSubscription.currentPeriodStart = currentPeriodStart;
@@ -194,8 +211,8 @@ export class SubscriptionsService {
       // Create new subscription record in database
       const subscription = new this.subscriptionModel({
         userId: user._id,
-        role: createSubscriptionDto.role,
-        status: SubscriptionStatus.PENDING, // Will be activated after email verification
+        role: createSubscriptionDto.role || 'premium', // Default to 'premium' if not specified
+        status: finalStatus, // PENDING for production (requires payment), ACTIVE for test mode
         stripeSubscriptionId,
         stripeCustomerId,
         currentPeriodStart,
@@ -206,41 +223,23 @@ export class SubscriptionsService {
       savedSubscription = await subscription.save();
     }
 
-    // Send verification code to user's email for subscription activation
-    try {
-      const user = await this.userModel.findById(userId);
-      if (user && user.email) {
-        // Generate a new verification code for subscription
-        const verificationCode = Math.floor(
-          100000 + Math.random() * 900000,
-        ).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-        // Update user with new verification code
-        await this.userModel.findByIdAndUpdate(userId, {
-          verificationCode,
-          verificationCodeExpires: expiresAt,
-        });
-
-        // Send verification code via email
-        await this.mailService.sendVerificationCode(user.email, verificationCode);
-        console.log(
-          `✅ Subscription verification code sent to ${user.email} for subscription activation`,
-        );
-      }
-    } catch (error) {
-      // Log error but don't fail subscription creation if email sending fails
-      console.error(
-        'Failed to send subscription verification code:',
-        error instanceof Error ? error.message : error,
-      );
+    // Update user's hasActiveSubscription flag only if immediately active (test mode)
+    if (finalStatus === SubscriptionStatus.ACTIVE) {
+      console.log(`✅ Subscription activated immediately (test mode) for user ${userId}`);
+      await this.userModel.findByIdAndUpdate(userId, {
+        hasActiveSubscription: true,
+      });
+    } else {
+      console.log(`⏳ Subscription pending payment confirmation for user ${userId}`);
+      console.log(`💡 Subscription will be activated automatically via webhook when payment succeeds`);
     }
 
     return {
       subscription: this.mapToResponseDto(savedSubscription),
       clientSecret,
-      message:
-        'Subscription created successfully. Please verify your email to activate.',
+      message: clientSecret 
+        ? 'Please complete payment to activate your subscription. Your subscription will be activated immediately upon successful payment.'
+        : 'Subscription activated successfully!',
     };
   }
 
@@ -272,8 +271,11 @@ export class SubscriptionsService {
       subscription.status = SubscriptionStatus.EXPIRED;
       await subscription.save();
 
-      // Downgrade user role to owner
-      await this.userModel.findByIdAndUpdate(userId, { role: 'owner' });
+      // Downgrade user role to owner and remove subscription flag
+      await this.userModel.findByIdAndUpdate(userId, { 
+        role: 'owner',
+        hasActiveSubscription: false,
+      });
     }
     // Check if subscription is expiring soon (within 7 days)
     else if (
@@ -410,10 +412,12 @@ export class SubscriptionsService {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Update user with new verification code (even if already verified)
+    // Update user with new verification code - DON'T change isVerified status
+    // User is already verified from registration
     await this.userModel.findByIdAndUpdate(userId, {
       verificationCode,
       verificationCodeExpires: expiresAt,
+      // isVerified stays true
     });
 
     // Send verification code via email
@@ -495,6 +499,43 @@ export class SubscriptionsService {
   }
 
   /**
+   * Update subscription role (vet or sitter) after payment
+   * Used when user subscribes first, then chooses their professional role
+   */
+  async updateSubscriptionRole(userId: string, role: string): Promise<SubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException('Only active subscriptions can update role');
+    }
+
+    if (role !== 'vet' && role !== 'sitter') {
+      throw new BadRequestException('Role must be either "vet" or "sitter"');
+    }
+
+    // Update subscription role
+    subscription.role = role;
+    await subscription.save();
+
+    // Update user role
+    await this.userModel.findByIdAndUpdate(userId, { 
+      role: role,
+      hasActiveSubscription: true,
+    });
+
+    console.log(`✅ Updated subscription role to ${role} for user ${userId}`);
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
    * Cancel subscription immediately
    */
   async cancel(userId: string): Promise<CancelSubscriptionResponseDto> {
@@ -533,8 +574,11 @@ export class SubscriptionsService {
     subscription.cancelAtPeriodEnd = false;
     await subscription.save();
 
-    // Downgrade user role to owner
-    await this.userModel.findByIdAndUpdate(userId, { role: 'owner' });
+    // Downgrade user role to owner and remove subscription flag
+    await this.userModel.findByIdAndUpdate(userId, { 
+      role: 'owner',
+      hasActiveSubscription: false,
+    });
 
     // Remove veterinarian or pet sitter record based on subscription role
     try {
@@ -619,6 +663,13 @@ export class SubscriptionsService {
    */
   async handleStripeWebhook(event: Stripe.Event): Promise<void> {
     switch (event.type) {
+      case 'payment_intent.succeeded': {
+        // Handle PaymentIntent success - activate subscription immediately
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await this.handlePaymentIntentSucceeded(paymentIntent);
+        break;
+      }
+
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
@@ -657,6 +708,76 @@ export class SubscriptionsService {
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }
+  }
+
+  /**
+   * Handle PaymentIntent succeeded - activate subscription immediately
+   */
+  private async handlePaymentIntentSucceeded(
+    paymentIntent: Stripe.PaymentIntent,
+  ): Promise<void> {
+    const userId = paymentIntent.metadata?.userId;
+    const subscriptionRole = paymentIntent.metadata?.subscriptionRole || 'premium';
+
+    if (!userId) {
+      console.warn('No userId in PaymentIntent metadata');
+      return;
+    }
+
+    console.log(`✅ Payment succeeded for user ${userId}. Activating subscription...`);
+
+    // Find the pending subscription
+    const subscription = await this.subscriptionModel.findOne({
+      userId: new Types.ObjectId(userId),
+      status: SubscriptionStatus.PENDING,
+    });
+
+    if (!subscription) {
+      console.warn(`No pending subscription found for user ${userId}`);
+      return;
+    }
+
+    // Activate the subscription immediately
+    subscription.status = SubscriptionStatus.ACTIVE;
+    subscription.role = subscriptionRole;
+    await subscription.save();
+
+    // Update user's hasActiveSubscription flag AND role
+    await this.userModel.findByIdAndUpdate(userId, {
+      hasActiveSubscription: true,
+      role: subscriptionRole, // Also update user's role
+    });
+
+    console.log(`✅ Subscription activated for user ${userId} with role ${subscriptionRole}`);
+    console.log(`✅ User role updated to ${subscriptionRole}`);
+  }
+
+  /**
+   * Manually activate pending subscription (for testing)
+   */
+  async activatePendingSubscription(userId: string): Promise<SubscriptionResponseDto> {
+    const userObjectId = new Types.ObjectId(userId);
+    const subscription = await this.subscriptionModel.findOne({
+      userId: userObjectId,
+      status: SubscriptionStatus.PENDING,
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No pending subscription found');
+    }
+
+    // Activate the subscription
+    subscription.status = SubscriptionStatus.ACTIVE;
+    await subscription.save();
+
+    // Update user's hasActiveSubscription flag
+    await this.userModel.findByIdAndUpdate(userId, {
+      hasActiveSubscription: true,
+      role: subscription.role,
+    });
+
+    console.log(`✅ Manually activated subscription for user ${userId}`);
+    return this.mapToResponseDto(subscription);
   }
 
   /**
@@ -831,5 +952,84 @@ export class SubscriptionsService {
       createdAt: subscription.createdAt,
       updatedAt: subscription.updatedAt,
     };
+  }
+
+  /**
+   * Activate subscription by Stripe subscription ID (called from webhook)
+   */
+  async activateSubscriptionByStripeId(stripeSubscriptionId: string): Promise<void> {
+    const subscription = await this.subscriptionModel.findOne({
+      stripeSubscriptionId,
+    });
+
+    if (!subscription) {
+      console.warn(`⚠️ No subscription found for Stripe ID: ${stripeSubscriptionId}`);
+      return;
+    }
+
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      console.log(`ℹ️ Subscription ${subscription._id} is already active`);
+      return;
+    }
+
+    // Activate subscription
+    subscription.status = SubscriptionStatus.ACTIVE;
+    await subscription.save();
+
+    // Update user's hasActiveSubscription flag
+    await this.userModel.findByIdAndUpdate(subscription.userId, {
+      hasActiveSubscription: true,
+    });
+
+    console.log(`✅ Activated subscription ${subscription._id} for user ${subscription.userId}`);
+  }
+
+  /**
+   * Create Stripe subscription after payment is confirmed (called from webhook)
+   */
+  async createSubscriptionAfterPayment(
+    userId: string,
+    customerId: string,
+    role: string,
+  ): Promise<void> {
+    console.log(`💳 Creating subscription after payment for user ${userId}`);
+
+    // Find the pending subscription
+    const subscription = await this.subscriptionModel.findOne({
+      userId: new Types.ObjectId(userId),
+      status: SubscriptionStatus.PENDING,
+    });
+
+    if (!subscription) {
+      console.warn(`⚠️ No pending subscription found for user ${userId}`);
+      return;
+    }
+
+    try {
+      // Create Stripe subscription now that payment is complete
+      const stripeSubscription = await this.stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: this.subscriptionPriceId }],
+      });
+
+      // Update our subscription record
+      subscription.stripeSubscriptionId = stripeSubscription.id;
+      subscription.stripeCustomerId = customerId;
+      subscription.currentPeriodStart = new Date((stripeSubscription as any).current_period_start * 1000);
+      subscription.currentPeriodEnd = new Date((stripeSubscription as any).current_period_end * 1000);
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.role = role;
+      await subscription.save();
+
+      // Update user's hasActiveSubscription flag
+      await this.userModel.findByIdAndUpdate(userId, {
+        hasActiveSubscription: true,
+      });
+
+      console.log(`✅ Created and activated subscription ${stripeSubscription.id} for user ${userId}`);
+    } catch (error) {
+      console.error(`❌ Failed to create subscription after payment for user ${userId}:`, error);
+      throw error;
+    }
   }
 }

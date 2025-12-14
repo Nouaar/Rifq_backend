@@ -29,7 +29,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Subscription.prototype, "userId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['vet', 'sitter'] }),
+    (0, mongoose_1.Prop)({ required: true, enum: ['vet', 'sitter', 'premium'] }),
     __metadata("design:type", String)
 ], Subscription.prototype, "role", void 0);
 __decorate([

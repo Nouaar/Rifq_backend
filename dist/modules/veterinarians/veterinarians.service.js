@@ -120,12 +120,14 @@ let VeterinariansService = class VeterinariansService {
         if (!user || !('_id' in user)) {
             throw new common_1.NotFoundException('User not populated correctly');
         }
-        if (vet.latitude !== undefined) {
-            user.latitude = vet.latitude;
-        }
-        if (vet.longitude !== undefined) {
-            user.longitude = vet.longitude;
-        }
+        user.vetLicenseNumber = vet.licenseNumber;
+        user.vetClinicName = vet.clinicName;
+        user.vetAddress = vet.clinicAddress;
+        user.vetSpecializations = vet.specializations;
+        user.vetYearsOfExperience = vet.yearsOfExperience;
+        user.vetBio = vet.bio;
+        user.latitude = vet.latitude;
+        user.longitude = vet.longitude;
         return user;
     }
     async findByEmail(email) {
@@ -144,8 +146,46 @@ let VeterinariansService = class VeterinariansService {
         return populatedUser && '_id' in populatedUser ? populatedUser : null;
     }
     async update(id, updateVetDto) {
+        const userFields = {};
+        const vetFields = {};
+        if (updateVetDto.phoneNumber !== undefined) {
+            userFields.phone = updateVetDto.phoneNumber;
+        }
+        if (updateVetDto.name !== undefined) {
+            userFields.name = updateVetDto.name;
+        }
+        if (updateVetDto.email !== undefined) {
+            userFields.email = updateVetDto.email;
+        }
+        if (updateVetDto.licenseNumber !== undefined) {
+            vetFields.licenseNumber = updateVetDto.licenseNumber;
+        }
+        if (updateVetDto.clinicName !== undefined) {
+            vetFields.clinicName = updateVetDto.clinicName;
+        }
+        if (updateVetDto.clinicAddress !== undefined) {
+            vetFields.clinicAddress = updateVetDto.clinicAddress;
+        }
+        if (updateVetDto.specializations !== undefined) {
+            vetFields.specializations = updateVetDto.specializations;
+        }
+        if (updateVetDto.yearsOfExperience !== undefined) {
+            vetFields.yearsOfExperience = updateVetDto.yearsOfExperience;
+        }
+        if (updateVetDto.latitude !== undefined) {
+            vetFields.latitude = updateVetDto.latitude;
+        }
+        if (updateVetDto.longitude !== undefined) {
+            vetFields.longitude = updateVetDto.longitude;
+        }
+        if (updateVetDto.bio !== undefined) {
+            vetFields.bio = updateVetDto.bio;
+        }
+        if (Object.keys(userFields).length > 0) {
+            await this.userModel.findByIdAndUpdate(id, { $set: userFields }).exec();
+        }
         const vet = await this.veterinarianModel
-            .findOneAndUpdate({ user: id }, { $set: updateVetDto }, { new: true })
+            .findOneAndUpdate({ user: id }, { $set: vetFields }, { new: true })
             .populate('user')
             .exec();
         if (!vet) {
@@ -155,12 +195,14 @@ let VeterinariansService = class VeterinariansService {
         if (!user || !('_id' in user)) {
             throw new common_1.NotFoundException('User not populated correctly');
         }
-        if (vet.latitude !== undefined) {
-            user.latitude = vet.latitude;
-        }
-        if (vet.longitude !== undefined) {
-            user.longitude = vet.longitude;
-        }
+        user.vetLicenseNumber = vet.licenseNumber;
+        user.vetClinicName = vet.clinicName;
+        user.vetAddress = vet.clinicAddress;
+        user.vetSpecializations = vet.specializations;
+        user.vetYearsOfExperience = vet.yearsOfExperience;
+        user.vetBio = vet.bio;
+        user.latitude = vet.latitude;
+        user.longitude = vet.longitude;
         return user;
     }
     async remove(id) {
@@ -215,33 +257,14 @@ let VeterinariansService = class VeterinariansService {
             const vetRecord = new this.veterinarianModel(vetRecordData);
             veterinarian = await vetRecord.save();
             await veterinarian.populate('user');
-            const user = await this.usersService.findOne(userId);
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
             await this.userModel
                 .findByIdAndUpdate(userId, {
                 $set: {
                     role: 'vet',
-                    isVerified: false,
-                    verificationCode,
-                    verificationCodeExpires,
                 },
             })
                 .exec();
-            console.log(`[Vet Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
-            try {
-                await this.mailService.sendVerificationCode(user.email, verificationCode);
-                console.log(`[Vet Conversion] Verification email sent successfully to ${user.email}`);
-            }
-            catch (err) {
-                if (err instanceof Error) {
-                    console.error('Failed to send verification email during vet conversion:', err.message);
-                    console.error('Error stack:', err.stack);
-                }
-                else {
-                    console.error('Failed to send verification email during vet conversion (unknown error):', err);
-                }
-            }
+            console.log(`[Vet Conversion] User ${userId} converted to vet role`);
         }
         const updatedUser = await this.usersService.findOne(userId);
         return updatedUser;

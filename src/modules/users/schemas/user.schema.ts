@@ -44,6 +44,9 @@ export class User extends Document {
   @Prop({ default: false })
   isVerified: boolean;
 
+  @Prop({ default: false })
+  hasActiveSubscription: boolean; // Track if user has active subscription for verified badge
+
   @Prop()
   verificationCode?: string;
 

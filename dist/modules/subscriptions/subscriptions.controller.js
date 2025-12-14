@@ -63,27 +63,31 @@ let SubscriptionsController = class SubscriptionsController {
     async renew(user) {
         return this.subscriptionsService.renew(user._id.toString());
     }
+    async updateRole(user, body) {
+        return this.subscriptionsService.updateSubscriptionRole(user._id.toString(), body.role);
+    }
+    async activatePending(user) {
+        return this.subscriptionsService.activatePendingSubscription(user._id.toString());
+    }
     async verifyEmail(user, verifyEmailDto) {
-        try {
-            const subscription = await this.subscriptionsService.verifyEmail(user._id.toString(), verifyEmailDto.code);
-            return {
-                success: true,
-                message: 'Email verified! Your subscription is now active.',
-                subscription,
-            };
-        }
-        catch (error) {
+        const subscription = await this.subscriptionsService.findByUserId(user._id.toString());
+        if (!subscription) {
             return {
                 success: false,
-                message: error instanceof Error
-                    ? error.message
-                    : 'Failed to verify email',
+                message: 'No subscription found',
                 subscription: undefined,
             };
         }
+        return {
+            success: true,
+            message: 'Subscription is already active. Email verification is no longer required.',
+            subscription,
+        };
     }
     async resendVerification(user) {
-        return this.subscriptionsService.resendVerificationCode(user._id.toString());
+        return {
+            message: 'Email verification is no longer required. Your subscription will activate automatically upon payment.',
+        };
     }
     async handleWebhook(req) {
         const sig = req.headers['stripe-signature'];
@@ -164,6 +168,25 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], SubscriptionsController.prototype, "renew", null);
+__decorate([
+    (0, common_1.Post)('update-role'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], SubscriptionsController.prototype, "updateRole", null);
+__decorate([
+    (0, common_1.Post)('activate-pending'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SubscriptionsController.prototype, "activatePending", null);
 __decorate([
     (0, common_1.Post)('verify-email'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionsController } from './subscriptions.controller';
+import { SubscriptionsWebhookController } from './subscriptions.webhook.controller';
 import { SubscriptionsScheduler } from './subscriptions.scheduler';
 import { Subscription, SubscriptionSchema } from './schemas/subscription.schema';
 import { User, UserSchema } from '../users/schemas/user.schema';
@@ -25,7 +26,7 @@ import { MailModule } from '../mail/mail.module';
     PetSittersModule,
     MailModule,
   ],
-  controllers: [SubscriptionsController],
+  controllers: [SubscriptionsController, SubscriptionsWebhookController],
   providers: [SubscriptionsService, SubscriptionsScheduler],
   exports: [SubscriptionsService],
 })

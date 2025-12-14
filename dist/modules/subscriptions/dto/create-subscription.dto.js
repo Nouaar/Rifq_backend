@@ -15,13 +15,13 @@ class CreateSubscriptionDto {
 }
 exports.CreateSubscriptionDto = CreateSubscriptionDto;
 __decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsEnum)(['vet', 'sitter']),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['vet', 'sitter', 'premium']),
     __metadata("design:type", String)
 ], CreateSubscriptionDto.prototype, "role", void 0);
 __decorate([
-    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateSubscriptionDto.prototype, "paymentMethodId", void 0);
 //# sourceMappingURL=create-subscription.dto.js.map

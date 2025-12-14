@@ -106,6 +106,29 @@ export class SubscriptionsController {
     return this.subscriptionsService.renew(user._id.toString());
   }
 
+  @Post('update-role')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateRole(
+    @CurrentUser() user: UserDocument,
+    @Body() body: { role: string },
+  ): Promise<SubscriptionResponseDto> {
+    return this.subscriptionsService.updateSubscriptionRole(user._id.toString(), body.role);
+  }
+
+  @Post('activate-pending')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async activatePending(
+    @CurrentUser() user: UserDocument,
+  ): Promise<SubscriptionResponseDto> {
+    // Manually activate pending subscription (for testing when webhook doesn't fire)
+    return this.subscriptionsService.activatePendingSubscription(user._id.toString());
+  }
+
+  // DEPRECATED: Email verification is no longer required for subscription activation
+  // Subscriptions are now activated automatically upon successful payment via webhook
+  // Keeping this endpoint for backward compatibility but it will return success immediately
   @Post('verify-email')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -113,37 +136,36 @@ export class SubscriptionsController {
     @CurrentUser() user: UserDocument,
     @Body() verifyEmailDto: VerifyEmailDto,
   ): Promise<VerifyEmailResponseDto> {
-    try {
-      const subscription = await this.subscriptionsService.verifyEmail(
-        user._id.toString(),
-        verifyEmailDto.code,
-      );
-      return {
-        success: true,
-        message: 'Email verified! Your subscription is now active.',
-        subscription,
-      };
-    } catch (error) {
+    // For backward compatibility, just return the current subscription status
+    const subscription = await this.subscriptionsService.findByUserId(
+      user._id.toString(),
+    );
+    
+    if (!subscription) {
       return {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to verify email',
+        message: 'No subscription found',
         subscription: undefined,
       };
     }
+
+    return {
+      success: true,
+      message: 'Subscription is already active. Email verification is no longer required.',
+      subscription,
+    };
   }
 
+  // DEPRECATED: Email verification is no longer required
   @Post('resend-verification')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async resendVerification(
     @CurrentUser() user: UserDocument,
   ): Promise<{ message: string }> {
-    return this.subscriptionsService.resendVerificationCode(
-      user._id.toString(),
-    );
+    return {
+      message: 'Email verification is no longer required. Your subscription will activate automatically upon payment.',
+    };
   }
 
   @Post('webhook')

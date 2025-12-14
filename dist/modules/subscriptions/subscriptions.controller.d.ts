@@ -15,6 +15,10 @@ export declare class SubscriptionsController {
     cancel(user: UserDocument): Promise<CancelSubscriptionResponseDto>;
     reactivate(user: UserDocument): Promise<SubscriptionResponseDto>;
     renew(user: UserDocument): Promise<SubscriptionResponseDto>;
+    updateRole(user: UserDocument, body: {
+        role: string;
+    }): Promise<SubscriptionResponseDto>;
+    activatePending(user: UserDocument): Promise<SubscriptionResponseDto>;
     verifyEmail(user: UserDocument, verifyEmailDto: VerifyEmailDto): Promise<VerifyEmailResponseDto>;
     resendVerification(user: UserDocument): Promise<{
         message: string;

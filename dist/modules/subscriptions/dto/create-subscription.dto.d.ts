@@ -1,4 +1,4 @@
 export declare class CreateSubscriptionDto {
-    role: 'vet' | 'sitter';
+    role?: 'vet' | 'sitter' | 'premium';
     paymentMethodId?: string;
 }

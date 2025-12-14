@@ -113,13 +113,17 @@ export class PetSittersService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from PetSitter into User document
-    if (sitter.latitude !== undefined) {
-      (user as any).latitude = sitter.latitude;
-    }
-    if (sitter.longitude !== undefined) {
-      (user as any).longitude = sitter.longitude;
-    }
+    // Merge all sitter fields into User document for client consumption
+    (user as any).sitterAddress = sitter.sitterAddress;
+    (user as any).hourlyRate = sitter.hourlyRate;
+    (user as any).services = sitter.services;
+    (user as any).yearsOfExperience = sitter.yearsOfExperience;
+    (user as any).availableWeekends = sitter.availableWeekends;
+    (user as any).canHostPets = sitter.canHostPets;
+    (user as any).availability = sitter.availability;
+    (user as any).bio = sitter.bio;
+    (user as any).latitude = sitter.latitude;
+    (user as any).longitude = sitter.longitude;
     return user;
   }
 
@@ -143,15 +147,56 @@ export class PetSittersService {
     id: string,
     updateSitterDto: UpdateSitterDto,
   ): Promise<UserDocument> {
-    // Map sitterAddress to sitterAddress in update data
-    const updateData: any = { ...updateSitterDto };
+    // Separate user fields from sitter fields
+    const userFields: any = {};
+    const sitterFields: any = {};
+
+    // User fields that go to the User model
+    if (updateSitterDto.phoneNumber !== undefined) {
+      userFields.phone = updateSitterDto.phoneNumber;
+    }
+    if (updateSitterDto.name !== undefined) {
+      userFields.name = updateSitterDto.name;
+    }
+    if (updateSitterDto.email !== undefined) {
+      userFields.email = updateSitterDto.email;
+    }
+
+    // Sitter fields that go to the PetSitter model
+    if (updateSitterDto.hourlyRate !== undefined) {
+      sitterFields.hourlyRate = updateSitterDto.hourlyRate;
+    }
+    if (updateSitterDto.sitterAddress !== undefined) {
+      sitterFields.sitterAddress = updateSitterDto.sitterAddress;
+    }
+    if (updateSitterDto.services !== undefined) {
+      sitterFields.services = updateSitterDto.services;
+    }
+    if (updateSitterDto.yearsOfExperience !== undefined) {
+      sitterFields.yearsOfExperience = updateSitterDto.yearsOfExperience;
+    }
+    if (updateSitterDto.availableWeekends !== undefined) {
+      sitterFields.availableWeekends = updateSitterDto.availableWeekends;
+    }
+    if (updateSitterDto.canHostPets !== undefined) {
+      sitterFields.canHostPets = updateSitterDto.canHostPets;
+    }
+    if (updateSitterDto.latitude !== undefined) {
+      sitterFields.latitude = updateSitterDto.latitude;
+    }
+    if (updateSitterDto.longitude !== undefined) {
+      sitterFields.longitude = updateSitterDto.longitude;
+    }
+    if (updateSitterDto.bio !== undefined) {
+      sitterFields.bio = updateSitterDto.bio;
+    }
 
     // Convert availability strings to Date objects if provided
     if (
       updateSitterDto.availability &&
       Array.isArray(updateSitterDto.availability)
     ) {
-      updateData.availability = updateSitterDto.availability.map(
+      sitterFields.availability = updateSitterDto.availability.map(
         (date: any) => {
           if (typeof date === 'string') {
             return new Date(date);
@@ -161,8 +206,14 @@ export class PetSittersService {
       );
     }
 
+    // Update user fields if any
+    if (Object.keys(userFields).length > 0) {
+      await this.userModel.findByIdAndUpdate(id, { $set: userFields }).exec();
+    }
+
+    // Update sitter fields if any
     const sitter = await this.petSitterModel
-      .findOneAndUpdate({ user: id }, { $set: updateData }, { new: true })
+      .findOneAndUpdate({ user: id }, { $set: sitterFields }, { new: true })
       .populate('user')
       .exec();
 
@@ -173,13 +224,17 @@ export class PetSittersService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from PetSitter into User document
-    if (sitter.latitude !== undefined) {
-      (user as any).latitude = sitter.latitude;
-    }
-    if (sitter.longitude !== undefined) {
-      (user as any).longitude = sitter.longitude;
-    }
+    // Merge all sitter fields into User document for client consumption
+    (user as any).sitterAddress = sitter.sitterAddress;
+    (user as any).hourlyRate = sitter.hourlyRate;
+    (user as any).services = sitter.services;
+    (user as any).yearsOfExperience = sitter.yearsOfExperience;
+    (user as any).availableWeekends = sitter.availableWeekends;
+    (user as any).canHostPets = sitter.canHostPets;
+    (user as any).availability = sitter.availability;
+    (user as any).bio = sitter.bio;
+    (user as any).latitude = sitter.latitude;
+    (user as any).longitude = sitter.longitude;
     return user;
   }
 
@@ -257,53 +312,16 @@ export class PetSittersService {
       petSitter = await sitterRecord.save();
       await petSitter.populate('user');
 
-      // Update user role to 'sitter' and always generate/send verification code
-      const user = await this.usersService.findOne(userId);
-
-      // Always generate a new verification code and send email when converting to sitter
-      // This ensures the user verifies their email after role change
-      const verificationCode = Math.floor(
-        100000 + Math.random() * 900000,
-      ).toString();
-      const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-
+      // Update user role to 'sitter' - keep existing verification status
       await this.userModel
         .findByIdAndUpdate(userId, {
           $set: {
             role: 'sitter',
-            isVerified: false, // Require re-verification after role change
-            verificationCode,
-            verificationCodeExpires,
           },
         })
         .exec();
 
-      // Send verification email (best effort - don't block conversion)
-      console.log(
-        `[Sitter Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`,
-      );
-      try {
-        await this.mailService.sendVerificationCode(
-          user.email,
-          verificationCode,
-        );
-        console.log(
-          `[Sitter Conversion] Verification email sent successfully to ${user.email}`,
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error(
-            'Failed to send verification email during sitter conversion:',
-            err.message,
-          );
-          console.error('Error stack:', err.stack);
-        } else {
-          console.error(
-            'Failed to send verification email during sitter conversion (unknown error):',
-            err,
-          );
-        }
-      }
+      console.log(`[Sitter Conversion] User ${userId} converted to sitter role`);
     }
 
     // Return the user with updated role

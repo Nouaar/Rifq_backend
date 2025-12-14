@@ -13,6 +13,7 @@ export declare class User extends Document {
     role: string;
     balance: number;
     isVerified: boolean;
+    hasActiveSubscription: boolean;
     verificationCode?: string;
     verificationCodeExpires?: Date;
     pendingEmail?: string;

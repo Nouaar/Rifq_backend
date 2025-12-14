@@ -103,13 +103,15 @@ export class VeterinariansService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from Veterinarian into User document
-    if (vet.latitude !== undefined) {
-      (user as any).latitude = vet.latitude;
-    }
-    if (vet.longitude !== undefined) {
-      (user as any).longitude = vet.longitude;
-    }
+    // Merge all vet fields into User document for client consumption
+    (user as any).vetLicenseNumber = vet.licenseNumber;
+    (user as any).vetClinicName = vet.clinicName;
+    (user as any).vetAddress = vet.clinicAddress;
+    (user as any).vetSpecializations = vet.specializations;
+    (user as any).vetYearsOfExperience = vet.yearsOfExperience;
+    (user as any).vetBio = vet.bio;
+    (user as any).latitude = vet.latitude;
+    (user as any).longitude = vet.longitude;
     return user;
   }
 
@@ -130,8 +132,55 @@ export class VeterinariansService {
   }
 
   async update(id: string, updateVetDto: UpdateVetDto): Promise<UserDocument> {
+    // Separate user fields from vet fields
+    const userFields: any = {};
+    const vetFields: any = {};
+
+    // User fields that go to the User model
+    if (updateVetDto.phoneNumber !== undefined) {
+      userFields.phone = updateVetDto.phoneNumber;
+    }
+    if (updateVetDto.name !== undefined) {
+      userFields.name = updateVetDto.name;
+    }
+    if (updateVetDto.email !== undefined) {
+      userFields.email = updateVetDto.email;
+    }
+
+    // Vet fields that go to the Veterinarian model
+    if (updateVetDto.licenseNumber !== undefined) {
+      vetFields.licenseNumber = updateVetDto.licenseNumber;
+    }
+    if (updateVetDto.clinicName !== undefined) {
+      vetFields.clinicName = updateVetDto.clinicName;
+    }
+    if (updateVetDto.clinicAddress !== undefined) {
+      vetFields.clinicAddress = updateVetDto.clinicAddress;
+    }
+    if (updateVetDto.specializations !== undefined) {
+      vetFields.specializations = updateVetDto.specializations;
+    }
+    if (updateVetDto.yearsOfExperience !== undefined) {
+      vetFields.yearsOfExperience = updateVetDto.yearsOfExperience;
+    }
+    if (updateVetDto.latitude !== undefined) {
+      vetFields.latitude = updateVetDto.latitude;
+    }
+    if (updateVetDto.longitude !== undefined) {
+      vetFields.longitude = updateVetDto.longitude;
+    }
+    if (updateVetDto.bio !== undefined) {
+      vetFields.bio = updateVetDto.bio;
+    }
+
+    // Update user fields if any
+    if (Object.keys(userFields).length > 0) {
+      await this.userModel.findByIdAndUpdate(id, { $set: userFields }).exec();
+    }
+
+    // Update vet fields if any
     const vet = await this.veterinarianModel
-      .findOneAndUpdate({ user: id }, { $set: updateVetDto }, { new: true })
+      .findOneAndUpdate({ user: id }, { $set: vetFields }, { new: true })
       .populate('user')
       .exec();
 
@@ -142,13 +191,15 @@ export class VeterinariansService {
     if (!user || !('_id' in user)) {
       throw new NotFoundException('User not populated correctly');
     }
-    // Merge latitude and longitude from Veterinarian into User document
-    if (vet.latitude !== undefined) {
-      (user as any).latitude = vet.latitude;
-    }
-    if (vet.longitude !== undefined) {
-      (user as any).longitude = vet.longitude;
-    }
+    // Merge all vet fields into User document for client consumption
+    (user as any).vetLicenseNumber = vet.licenseNumber;
+    (user as any).vetClinicName = vet.clinicName;
+    (user as any).vetAddress = vet.clinicAddress;
+    (user as any).vetSpecializations = vet.specializations;
+    (user as any).vetYearsOfExperience = vet.yearsOfExperience;
+    (user as any).vetBio = vet.bio;
+    (user as any).latitude = vet.latitude;
+    (user as any).longitude = vet.longitude;
     return user;
   }
 
@@ -226,53 +277,16 @@ export class VeterinariansService {
       veterinarian = await vetRecord.save();
       await veterinarian.populate('user');
 
-      // Update user role to 'vet' and always generate/send verification code
-      const user = await this.usersService.findOne(userId);
-
-      // Always generate a new verification code and send email when converting to vet
-      // This ensures the user verifies their email after role change
-      const verificationCode = Math.floor(
-        100000 + Math.random() * 900000,
-      ).toString();
-      const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
-
+      // Update user role to 'vet' - keep existing verification status
       await this.userModel
         .findByIdAndUpdate(userId, {
           $set: {
             role: 'vet',
-            isVerified: false, // Require re-verification after role change
-            verificationCode,
-            verificationCodeExpires,
           },
         })
         .exec();
 
-      // Send verification email (best effort - don't block conversion)
-      console.log(
-        `[Vet Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`,
-      );
-      try {
-        await this.mailService.sendVerificationCode(
-          user.email,
-          verificationCode,
-        );
-        console.log(
-          `[Vet Conversion] Verification email sent successfully to ${user.email}`,
-        );
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error(
-            'Failed to send verification email during vet conversion:',
-            err.message,
-          );
-          console.error('Error stack:', err.stack);
-        } else {
-          console.error(
-            'Failed to send verification email during vet conversion (unknown error):',
-            err,
-          );
-        }
-      }
+      console.log(`[Vet Conversion] User ${userId} converted to vet role`);
     }
 
     // Return the user with updated role

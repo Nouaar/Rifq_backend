@@ -129,12 +129,16 @@ let PetSittersService = class PetSittersService {
         if (!user || !('_id' in user)) {
             throw new common_1.NotFoundException('User not populated correctly');
         }
-        if (sitter.latitude !== undefined) {
-            user.latitude = sitter.latitude;
-        }
-        if (sitter.longitude !== undefined) {
-            user.longitude = sitter.longitude;
-        }
+        user.sitterAddress = sitter.sitterAddress;
+        user.hourlyRate = sitter.hourlyRate;
+        user.services = sitter.services;
+        user.yearsOfExperience = sitter.yearsOfExperience;
+        user.availableWeekends = sitter.availableWeekends;
+        user.canHostPets = sitter.canHostPets;
+        user.availability = sitter.availability;
+        user.bio = sitter.bio;
+        user.latitude = sitter.latitude;
+        user.longitude = sitter.longitude;
         return user;
     }
     async findByEmail(email) {
@@ -153,18 +157,58 @@ let PetSittersService = class PetSittersService {
         return populatedUser && '_id' in populatedUser ? populatedUser : null;
     }
     async update(id, updateSitterDto) {
-        const updateData = { ...updateSitterDto };
+        const userFields = {};
+        const sitterFields = {};
+        if (updateSitterDto.phoneNumber !== undefined) {
+            userFields.phone = updateSitterDto.phoneNumber;
+        }
+        if (updateSitterDto.name !== undefined) {
+            userFields.name = updateSitterDto.name;
+        }
+        if (updateSitterDto.email !== undefined) {
+            userFields.email = updateSitterDto.email;
+        }
+        if (updateSitterDto.hourlyRate !== undefined) {
+            sitterFields.hourlyRate = updateSitterDto.hourlyRate;
+        }
+        if (updateSitterDto.sitterAddress !== undefined) {
+            sitterFields.sitterAddress = updateSitterDto.sitterAddress;
+        }
+        if (updateSitterDto.services !== undefined) {
+            sitterFields.services = updateSitterDto.services;
+        }
+        if (updateSitterDto.yearsOfExperience !== undefined) {
+            sitterFields.yearsOfExperience = updateSitterDto.yearsOfExperience;
+        }
+        if (updateSitterDto.availableWeekends !== undefined) {
+            sitterFields.availableWeekends = updateSitterDto.availableWeekends;
+        }
+        if (updateSitterDto.canHostPets !== undefined) {
+            sitterFields.canHostPets = updateSitterDto.canHostPets;
+        }
+        if (updateSitterDto.latitude !== undefined) {
+            sitterFields.latitude = updateSitterDto.latitude;
+        }
+        if (updateSitterDto.longitude !== undefined) {
+            sitterFields.longitude = updateSitterDto.longitude;
+        }
+        if (updateSitterDto.bio !== undefined) {
+            sitterFields.bio = updateSitterDto.bio;
+        }
         if (updateSitterDto.availability &&
             Array.isArray(updateSitterDto.availability)) {
-            updateData.availability = updateSitterDto.availability.map((date) => {
+            sitterFields.availability = updateSitterDto.availability.map((date) => {
                 if (typeof date === 'string') {
                     return new Date(date);
                 }
                 return date instanceof Date ? date : new Date(date);
             });
         }
+        if (Object.keys(userFields).length > 0) {
+            await this.userModel.findByIdAndUpdate(id, { $set: userFields }).exec();
+        }
         const sitter = await this.petSitterModel
-            .findOneAndUpdate({ user: id }, { $set: updateData }, { new: true })
+            .findOneAndUpdate({ user: id }, { $set: sitterFields }, { new: true })
             .populate('user')
             .exec();
         if (!sitter) {
@@ -174,12 +218,16 @@ let PetSittersService = class PetSittersService {
         if (!user || !('_id' in user)) {
             throw new common_1.NotFoundException('User not populated correctly');
         }
-        if (sitter.latitude !== undefined) {
-            user.latitude = sitter.latitude;
-        }
-        if (sitter.longitude !== undefined) {
-            user.longitude = sitter.longitude;
-        }
+        user.sitterAddress = sitter.sitterAddress;
+        user.hourlyRate = sitter.hourlyRate;
+        user.services = sitter.services;
+        user.yearsOfExperience = sitter.yearsOfExperience;
+        user.availableWeekends = sitter.availableWeekends;
+        user.canHostPets = sitter.canHostPets;
+        user.availability = sitter.availability;
+        user.bio = sitter.bio;
+        user.latitude = sitter.latitude;
+        user.longitude = sitter.longitude;
         return user;
     }
     async remove(id) {
@@ -239,33 +287,14 @@ let PetSittersService = class PetSittersService {
             });
             petSitter = await sitterRecord.save();
             await petSitter.populate('user');
-            const user = await this.usersService.findOne(userId);
-            const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-            const verificationCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
             await this.userModel
                 .findByIdAndUpdate(userId, {
                 $set: {
                     role: 'sitter',
-                    isVerified: false,
-                    verificationCode,
-                    verificationCodeExpires,
                 },
             })
                 .exec();
-            console.log(`[Sitter Conversion] Sending verification email to ${user.email} with code: ${verificationCode}`);
-            try {
-                await this.mailService.sendVerificationCode(user.email, verificationCode);
-                console.log(`[Sitter Conversion] Verification email sent successfully to ${user.email}`);
-            }
-            catch (err) {
-                if (err instanceof Error) {
-                    console.error('Failed to send verification email during sitter conversion:', err.message);
-                    console.error('Error stack:', err.stack);
-                }
-                else {
-                    console.error('Failed to send verification email during sitter conversion (unknown error):', err);
-                }
-            }
+            console.log(`[Sitter Conversion] User ${userId} converted to sitter role`);
         }
         const updatedUser = await this.usersService.findOne(userId);
         return updatedUser;
