@@ -44,16 +44,43 @@ export class SubscriptionsWebhookController {
       return { received: true };
     }
 
+    // Check if signature exists
+    if (!signature) {
+      console.error('⚠️ Missing stripe-signature header');
+      throw new BadRequestException('Webhook Error: Missing stripe-signature header.');
+    }
+
+    // Get raw body - try multiple sources
+    let rawBody: Buffer | string | undefined = request.rawBody;
+    
+    // If rawBody is not available, try to get it from the request body
+    if (!rawBody) {
+      // Try to get from request body if it's a Buffer
+      if (request.body && Buffer.isBuffer(request.body)) {
+        rawBody = request.body;
+      } else if (request.body && typeof request.body === 'string') {
+        rawBody = Buffer.from(request.body);
+      } else {
+        console.error('⚠️ No webhook payload was provided. rawBody:', typeof request.rawBody, 'body:', typeof request.body);
+        throw new BadRequestException('Webhook Error: No webhook payload was provided.');
+      }
+    }
+
+    // Ensure rawBody is a Buffer
+    if (!Buffer.isBuffer(rawBody)) {
+      rawBody = Buffer.from(rawBody as string);
+    }
+
     let event: Stripe.Event;
 
     try {
       // Verify webhook signature
       event = this.stripe.webhooks.constructEvent(
-        request.rawBody,
+        rawBody,
         signature,
         this.webhookSecret,
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('⚠️ Webhook signature verification failed:', err.message);
       throw new BadRequestException(`Webhook Error: ${err.message}`);
     }
