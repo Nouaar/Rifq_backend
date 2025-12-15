@@ -94,9 +94,9 @@ let SubscriptionsWebhookController = class SubscriptionsWebhookController {
             try {
                 const customer = await this.stripe.customers.retrieve(customerId);
                 if (customer && !customer.deleted) {
-                    const activeCustomer = customer;
-                    if (activeCustomer.metadata?.userId) {
-                        userId = activeCustomer.metadata.userId;
+                    const stripeCustomer = customer;
+                    if (stripeCustomer.metadata?.userId) {
+                        userId = stripeCustomer.metadata.userId;
                         console.log(`✅ Found userId from customer metadata: ${userId}`);
                     }
                 }

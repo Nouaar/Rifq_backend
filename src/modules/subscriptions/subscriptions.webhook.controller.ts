@@ -126,10 +126,9 @@ export class SubscriptionsWebhookController {
         // Try to get userId from customer metadata
         const customer = await this.stripe.customers.retrieve(customerId);
         if (customer && !customer.deleted) {
-          // Type guard: customer is now of type Customer
-          const activeCustomer = customer as Stripe.Customer;
-          if (activeCustomer.metadata?.userId) {
-            userId = activeCustomer.metadata.userId;
+          const stripeCustomer = customer as Stripe.Customer;
+          if (stripeCustomer.metadata?.userId) {
+            userId = stripeCustomer.metadata.userId;
             console.log(`✅ Found userId from customer metadata: ${userId}`);
           }
         }
