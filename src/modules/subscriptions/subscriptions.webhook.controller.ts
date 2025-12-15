@@ -39,8 +39,16 @@ export class SubscriptionsWebhookController {
     @Req() request: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ) {
+    console.log('🔔 Webhook received at /webhooks/stripe');
+    console.log('📋 Headers:', {
+      signature: signature ? 'present' : 'missing',
+      contentType: request.headers['content-type'],
+    });
+    
     if (!this.stripe || !this.webhookSecret) {
       console.warn('⚠️ Stripe webhook received but Stripe is not configured');
+      console.warn('⚠️ Stripe initialized:', !!this.stripe);
+      console.warn('⚠️ Webhook secret configured:', !!this.webhookSecret);
       return { received: true };
     }
 
