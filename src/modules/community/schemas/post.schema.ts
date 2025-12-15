@@ -28,6 +28,28 @@ export class Post {
   @Prop({ type: [{ userId: String, reactionType: String }], default: [] })
   userReactions: Array<{ userId: string; reactionType: string }>;
 
+  @Prop({
+    type: [
+      {
+        _id: { type: MongooseSchema.Types.ObjectId, auto: true },
+        userId: String,
+        userName: String,
+        userProfileImage: String,
+        text: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  comments: Array<{
+    _id: MongooseSchema.Types.ObjectId;
+    userId: string;
+    userName: string;
+    userProfileImage?: string;
+    text: string;
+    createdAt: Date;
+  }>;
+
   @Prop({ default: Date.now })
   createdAt: Date;
 

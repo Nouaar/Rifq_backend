@@ -88,6 +88,7 @@ export class CommunityService {
         angries: reactions?.get('angry') || 0,
         cries: reactions?.get('cry') || 0,
         userReaction: userReaction?.reactionType || null,
+        comments: post.comments || [],
         createdAt: post.createdAt,
       };
     });
@@ -146,6 +147,7 @@ export class CommunityService {
         angries: (reactions?.angry as number) || 0,
         cries: (reactions?.cry as number) || 0,
         userReaction: userReaction?.reactionType || null,
+        comments: post.comments || [],
         createdAt: post.createdAt,
       };
     });
@@ -234,6 +236,67 @@ export class CommunityService {
     await this.postModel.findByIdAndDelete(postId).exec();
   }
 
+  async addComment(
+    postId: string,
+    userId: string,
+    userName: string,
+    userProfileImage: string | undefined,
+    text: string,
+  ): Promise<Post> {
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const comment = {
+      userId,
+      userName,
+      userProfileImage,
+      text,
+      createdAt: new Date(),
+    };
+
+    post.comments.push(comment as any);
+    await post.save();
+
+    return this.getPostWithUserReaction(post, userId);
+  }
+
+  async deleteComment(
+    postId: string,
+    commentId: string,
+    userId: string,
+  ): Promise<Post> {
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    const commentIndex = post.comments.findIndex(
+      (c: any) => c._id.toString() === commentId,
+    );
+
+    if (commentIndex === -1) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // Only allow comment owner or post owner to delete
+    const comment = post.comments[commentIndex] as any;
+    if (
+      comment.userId !== userId &&
+      post.userId.toString() !== userId
+    ) {
+      throw new ForbiddenException(
+        'You can only delete your own comments or comments on your posts',
+      );
+    }
+
+    post.comments.splice(commentIndex, 1);
+    await post.save();
+
+    return this.getPostWithUserReaction(post, userId);
+  }
+
   private getPostWithUserReaction(post: PostDocument, userId: string): any {
     const userReaction = post.userReactions.find((r) => r.userId === userId);
     const reactions = post.reactions as any;
@@ -251,6 +314,7 @@ export class CommunityService {
       angries: (reactions?.angry as number) || 0,
       cries: (reactions?.cry as number) || 0,
       userReaction: userReaction?.reactionType || null,
+      comments: post.comments || [],
       createdAt: post.createdAt,
     };
   }

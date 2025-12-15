@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CommunityService } from './community.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { ReactPostDto } from './dto/react-post.dto';
+import { AddCommentDto } from './dto/add-comment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
@@ -151,6 +152,44 @@ export class CommunityController {
 
     return {
       message: 'Post deleted successfully',
+    };
+  }
+
+  @Post('posts/:postId/comments')
+  async addComment(
+    @Request() req,
+    @Param('postId') postId: string,
+    @Body() addCommentDto: AddCommentDto,
+  ) {
+    const post = await this.communityService.addComment(
+      postId,
+      req.user._id.toString(),
+      req.user.name,
+      req.user.profileImage,
+      addCommentDto.text,
+    );
+
+    return {
+      message: 'Comment added successfully',
+      post,
+    };
+  }
+
+  @Delete('posts/:postId/comments/:commentId')
+  async deleteComment(
+    @Request() req,
+    @Param('postId') postId: string,
+    @Param('commentId') commentId: string,
+  ) {
+    const post = await this.communityService.deleteComment(
+      postId,
+      commentId,
+      req.user._id.toString(),
+    );
+
+    return {
+      message: 'Comment deleted successfully',
+      post,
     };
   }
 }
