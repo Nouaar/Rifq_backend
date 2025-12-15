@@ -20,6 +20,7 @@ export declare class SubscriptionsService {
     constructor(subscriptionModel: Model<SubscriptionDocument>, userModel: Model<UserDocument>, configService: ConfigService, veterinariansService: VeterinariansService, petSittersService: PetSittersService, mailService: MailService);
     create(userId: string, createSubscriptionDto: CreateSubscriptionDto): Promise<CreateSubscriptionResponseDto>;
     findByUserId(userId: string): Promise<SubscriptionResponseDto | null>;
+    findByCustomerId(customerId: string): Promise<SubscriptionResponseDto | null>;
     activate(userId: string): Promise<SubscriptionResponseDto>;
     verifyEmail(userId: string, code: string): Promise<SubscriptionResponseDto>;
     resendVerificationCode(userId: string): Promise<{
@@ -38,5 +39,5 @@ export declare class SubscriptionsService {
     checkAndCancelExpiredSubscriptions(): Promise<void>;
     private mapToResponseDto;
     activateSubscriptionByStripeId(stripeSubscriptionId: string): Promise<void>;
-    createSubscriptionAfterPayment(userId: string, customerId: string, role: string): Promise<void>;
+    createSubscriptionAfterPayment(userId: string, customerId: string, role: string, paymentMethodId: string): Promise<void>;
 }

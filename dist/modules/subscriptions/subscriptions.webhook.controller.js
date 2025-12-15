@@ -37,9 +37,29 @@ let SubscriptionsWebhookController = class SubscriptionsWebhookController {
             console.warn('⚠️ Stripe webhook received but Stripe is not configured');
             return { received: true };
         }
+        if (!signature) {
+            console.error('⚠️ Missing stripe-signature header');
+            throw new common_1.BadRequestException('Webhook Error: Missing stripe-signature header.');
+        }
+        let rawBody = request.rawBody;
+        if (!rawBody) {
+            if (request.body && Buffer.isBuffer(request.body)) {
+                rawBody = request.body;
+            }
+            else if (request.body && typeof request.body === 'string') {
+                rawBody = Buffer.from(request.body);
+            }
+            else {
+                console.error('⚠️ No webhook payload was provided. rawBody:', typeof request.rawBody, 'body:', typeof request.body);
+                throw new common_1.BadRequestException('Webhook Error: No webhook payload was provided.');
+            }
+        }
+        if (!Buffer.isBuffer(rawBody)) {
+            rawBody = Buffer.from(rawBody);
+        }
         let event;
         try {
-            event = this.stripe.webhooks.constructEvent(request.rawBody, signature, this.webhookSecret);
+            event = this.stripe.webhooks.constructEvent(rawBody, signature, this.webhookSecret);
         }
         catch (err) {
             console.error('⚠️ Webhook signature verification failed:', err.message);
@@ -66,10 +86,42 @@ let SubscriptionsWebhookController = class SubscriptionsWebhookController {
     }
     async handlePaymentIntentSucceeded(paymentIntent) {
         console.log('✅ Payment succeeded for PaymentIntent:', paymentIntent.id);
-        const userId = paymentIntent.metadata?.userId;
-        const subscriptionRole = paymentIntent.metadata?.subscriptionRole || 'premium';
-        if (userId) {
-            await this.subscriptionsService.createSubscriptionAfterPayment(userId, paymentIntent.customer, subscriptionRole);
+        let userId = paymentIntent.metadata?.userId;
+        let subscriptionRole = paymentIntent.metadata?.subscriptionRole || 'premium';
+        const paymentMethodId = paymentIntent.payment_method;
+        const customerId = paymentIntent.customer;
+        if (!userId && customerId) {
+            try {
+                const customer = await this.stripe.customers.retrieve(customerId);
+                if (customer && !customer.deleted) {
+                    const activeCustomer = customer;
+                    if (activeCustomer.metadata?.userId) {
+                        userId = activeCustomer.metadata.userId;
+                        console.log(`✅ Found userId from customer metadata: ${userId}`);
+                    }
+                }
+            }
+            catch (error) {
+                console.warn(`⚠️ Could not retrieve customer: ${error.message}`);
+            }
+            if (!userId) {
+                const subscription = await this.subscriptionsService.findByCustomerId(customerId);
+                if (subscription) {
+                    userId = subscription.userId.toString();
+                    subscriptionRole = subscription.role || 'premium';
+                    console.log(`✅ Found subscription by customer ID. userId: ${userId}, role: ${subscriptionRole}`);
+                }
+            }
+        }
+        if (userId && customerId) {
+            await this.subscriptionsService.createSubscriptionAfterPayment(userId, customerId, subscriptionRole, paymentMethodId);
+        }
+        else {
+            console.error('❌ Cannot activate subscription - missing required data:', {
+                userId,
+                customer: customerId,
+                paymentIntentId: paymentIntent.id,
+            });
         }
     }
     async handlePaymentIntentFailed(paymentIntent) {

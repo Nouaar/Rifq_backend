@@ -219,6 +219,15 @@ let SubscriptionsService = class SubscriptionsService {
         }
         return this.mapToResponseDto(subscription);
     }
+    async findByCustomerId(customerId) {
+        const subscription = await this.subscriptionModel.findOne({
+            stripeCustomerId: customerId,
+        });
+        if (!subscription) {
+            return null;
+        }
+        return this.mapToResponseDto(subscription);
+    }
     async activate(userId) {
         const userObjectId = new mongoose_2.Types.ObjectId(userId);
         const subscription = await this.subscriptionModel.findOne({
@@ -639,7 +648,7 @@ let SubscriptionsService = class SubscriptionsService {
         });
         console.log(`✅ Activated subscription ${subscription._id} for user ${subscription.userId}`);
     }
-    async createSubscriptionAfterPayment(userId, customerId, role) {
+    async createSubscriptionAfterPayment(userId, customerId, role, paymentMethodId) {
         console.log(`💳 Creating subscription after payment for user ${userId}`);
         const subscription = await this.subscriptionModel.findOne({
             userId: new mongoose_2.Types.ObjectId(userId),
@@ -650,9 +659,48 @@ let SubscriptionsService = class SubscriptionsService {
             return;
         }
         try {
+            if (paymentMethodId) {
+                try {
+                    const paymentMethod = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+                    if (!paymentMethod.customer || paymentMethod.customer !== customerId) {
+                        await this.stripe.paymentMethods.attach(paymentMethodId, {
+                            customer: customerId,
+                        });
+                        console.log(`✅ Attached payment method ${paymentMethodId} to customer ${customerId}`);
+                    }
+                    else {
+                        console.log(`ℹ️ Payment method ${paymentMethodId} already attached to customer ${customerId}`);
+                    }
+                    await this.stripe.customers.update(customerId, {
+                        invoice_settings: {
+                            default_payment_method: paymentMethodId,
+                        },
+                    });
+                    console.log(`✅ Set payment method ${paymentMethodId} as default for customer ${customerId}`);
+                }
+                catch (pmError) {
+                    if (pmError.code === 'resource_already_exists' || pmError.message?.includes('already attached')) {
+                        console.log(`ℹ️ Payment method already attached, setting as default...`);
+                        try {
+                            await this.stripe.customers.update(customerId, {
+                                invoice_settings: {
+                                    default_payment_method: paymentMethodId,
+                                },
+                            });
+                        }
+                        catch (updateError) {
+                            console.warn(`⚠️ Could not set default payment method: ${updateError.message}`);
+                        }
+                    }
+                    else {
+                        console.warn(`⚠️ Could not attach payment method: ${pmError.message}`);
+                    }
+                }
+            }
             const stripeSubscription = await this.stripe.subscriptions.create({
                 customer: customerId,
                 items: [{ price: this.subscriptionPriceId }],
+                default_payment_method: paymentMethodId || undefined,
             });
             subscription.stripeSubscriptionId = stripeSubscription.id;
             subscription.stripeCustomerId = customerId;
@@ -663,6 +711,7 @@ let SubscriptionsService = class SubscriptionsService {
             await subscription.save();
             await this.userModel.findByIdAndUpdate(userId, {
                 hasActiveSubscription: true,
+                role: role,
             });
             console.log(`✅ Created and activated subscription ${stripeSubscription.id} for user ${userId}`);
         }
