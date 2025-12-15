@@ -16,6 +16,9 @@ export class Post {
   @Prop()
   userProfileImage?: string;
 
+  @Prop()
+  userRole?: string;
+
   @Prop({ required: true })
   petImage: string;
 
@@ -27,6 +30,9 @@ export class Post {
 
   @Prop({ type: [{ userId: String, reactionType: String }], default: [] })
   userReactions: Array<{ userId: string; reactionType: string }>;
+
+  @Prop({ type: [String], default: [] })
+  reports: string[]; // Array of userIds who reported this post
 
   @Prop({
     type: [

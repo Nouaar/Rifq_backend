@@ -1,5 +1,6 @@
 import { CommunityService } from './community.service';
 import { ReactPostDto } from './dto/react-post.dto';
+import { AddCommentDto } from './dto/add-comment.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export declare class CommunityController {
     private readonly communityService;
@@ -31,5 +32,17 @@ export declare class CommunityController {
     }>;
     deletePost(req: any, postId: string): Promise<{
         message: string;
+    }>;
+    addComment(req: any, postId: string, addCommentDto: AddCommentDto): Promise<{
+        message: string;
+        post: import("./schemas/post.schema").Post;
+    }>;
+    deleteComment(req: any, postId: string, commentId: string): Promise<{
+        message: string;
+        post: import("./schemas/post.schema").Post;
+    }>;
+    reportPost(req: any, postId: string): Promise<{
+        message: string;
+        deleted?: boolean;
     }>;
 }

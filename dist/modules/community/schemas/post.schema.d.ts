@@ -5,12 +5,23 @@ export declare class Post {
     userId: User;
     userName: string;
     userProfileImage?: string;
+    userRole?: string;
     petImage: string;
     caption?: string;
     reactions: Map<string, number>;
     userReactions: Array<{
         userId: string;
         reactionType: string;
+    }>;
+    reports: string[];
+    comments: Array<{
+        _id: MongooseSchema.Types.ObjectId;
+        userId: string;
+        userName: string;
+        userProfileImage?: string;
+        userRole?: string;
+        text: string;
+        createdAt: Date;
     }>;
     createdAt: Date;
     updatedAt: Date;

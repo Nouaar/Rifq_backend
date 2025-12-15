@@ -33,8 +33,15 @@ let SubscriptionsWebhookController = class SubscriptionsWebhookController {
         this.webhookSecret = this.configService.get('STRIPE_WEBHOOK_SECRET') || '';
     }
     async handleWebhook(request, signature) {
+        console.log('🔔 Webhook received at /webhooks/stripe');
+        console.log('📋 Headers:', {
+            signature: signature ? 'present' : 'missing',
+            contentType: request.headers['content-type'],
+        });
         if (!this.stripe || !this.webhookSecret) {
             console.warn('⚠️ Stripe webhook received but Stripe is not configured');
+            console.warn('⚠️ Stripe initialized:', !!this.stripe);
+            console.warn('⚠️ Webhook secret configured:', !!this.webhookSecret);
             return { received: true };
         }
         if (!signature) {

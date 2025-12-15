@@ -18,12 +18,14 @@ export class CommunityService {
     userId: string,
     userName: string,
     userProfileImage: string,
+    userRole: string,
     createPostDto: CreatePostDto,
   ): Promise<Post> {
     const newPost = new this.postModel({
       userId,
       userName,
       userProfileImage,
+      userRole,
       petImage: createPostDto.petImage,
       caption: createPostDto.caption,
       reactions: new Map([
@@ -80,6 +82,7 @@ export class CommunityService {
         userId: post.userId,
         userName: post.userName,
         userProfileImage: post.userProfileImage,
+        userRole: post.userRole,
         petImage: post.petImage,
         caption: post.caption,
         likes: reactions?.get('like') || 0,
@@ -139,6 +142,7 @@ export class CommunityService {
         userId: post.userId,
         userName: post.userName,
         userProfileImage: post.userProfileImage,
+        userRole: post.userRole,
         petImage: post.petImage,
         caption: post.caption,
         likes: (reactions?.like as number) || 0,
@@ -318,6 +322,42 @@ export class CommunityService {
       userReaction: userReaction?.reactionType || null,
       comments: post.comments || [],
       createdAt: post.createdAt,
+    };
+  }
+
+  async reportPost(
+    postId: string,
+    userId: string,
+  ): Promise<{ message: string; deleted?: boolean }> {
+    const post = await this.postModel.findById(postId).exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    // Check if user already reported this post
+    if (post.reports && post.reports.includes(userId)) {
+      throw new ForbiddenException('You have already reported this post');
+    }
+
+    // Add user to reports array
+    if (!post.reports) {
+      post.reports = [];
+    }
+    post.reports.push(userId);
+
+    // If post has 3 or more reports, delete it
+    if (post.reports.length >= 3) {
+      await this.postModel.findByIdAndDelete(postId).exec();
+      return {
+        message: 'Post has been deleted due to multiple reports',
+        deleted: true,
+      };
+    }
+
+    await post.save();
+    return {
+      message: 'Post reported successfully',
+      deleted: false,
     };
   }
 }

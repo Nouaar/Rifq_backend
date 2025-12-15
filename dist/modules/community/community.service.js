@@ -21,11 +21,12 @@ let CommunityService = class CommunityService {
     constructor(postModel) {
         this.postModel = postModel;
     }
-    async createPost(userId, userName, userProfileImage, createPostDto) {
+    async createPost(userId, userName, userProfileImage, userRole, createPostDto) {
         const newPost = new this.postModel({
             userId,
             userName,
             userProfileImage,
+            userRole,
             petImage: createPostDto.petImage,
             caption: createPostDto.caption,
             reactions: new Map([
@@ -62,6 +63,7 @@ let CommunityService = class CommunityService {
                 userId: post.userId,
                 userName: post.userName,
                 userProfileImage: post.userProfileImage,
+                userRole: post.userRole,
                 petImage: post.petImage,
                 caption: post.caption,
                 likes: reactions?.get('like') || 0,
@@ -70,6 +72,7 @@ let CommunityService = class CommunityService {
                 angries: reactions?.get('angry') || 0,
                 cries: reactions?.get('cry') || 0,
                 userReaction: userReaction?.reactionType || null,
+                comments: post.comments || [],
                 createdAt: post.createdAt,
             };
         });
@@ -101,6 +104,7 @@ let CommunityService = class CommunityService {
                 userId: post.userId,
                 userName: post.userName,
                 userProfileImage: post.userProfileImage,
+                userRole: post.userRole,
                 petImage: post.petImage,
                 caption: post.caption,
                 likes: reactions?.like || 0,
@@ -109,6 +113,7 @@ let CommunityService = class CommunityService {
                 angries: reactions?.angry || 0,
                 cries: reactions?.cry || 0,
                 userReaction: userReaction?.reactionType || null,
+                comments: post.comments || [],
                 createdAt: post.createdAt,
             };
         });
@@ -162,6 +167,41 @@ let CommunityService = class CommunityService {
         }
         await this.postModel.findByIdAndDelete(postId).exec();
     }
+    async addComment(postId, userId, userName, userProfileImage, userRole, text) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        const comment = {
+            userId,
+            userName,
+            userProfileImage,
+            userRole,
+            text,
+            createdAt: new Date(),
+        };
+        post.comments.push(comment);
+        await post.save();
+        return this.getPostWithUserReaction(post, userId);
+    }
+    async deleteComment(postId, commentId, userId) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        const commentIndex = post.comments.findIndex((c) => c._id.toString() === commentId);
+        if (commentIndex === -1) {
+            throw new common_1.NotFoundException('Comment not found');
+        }
+        const comment = post.comments[commentIndex];
+        if (comment.userId !== userId &&
+            post.userId.toString() !== userId) {
+            throw new common_1.ForbiddenException('You can only delete your own comments or comments on your posts');
+        }
+        post.comments.splice(commentIndex, 1);
+        await post.save();
+        return this.getPostWithUserReaction(post, userId);
+    }
     getPostWithUserReaction(post, userId) {
         const userReaction = post.userReactions.find((r) => r.userId === userId);
         const reactions = post.reactions;
@@ -178,7 +218,33 @@ let CommunityService = class CommunityService {
             angries: reactions?.angry || 0,
             cries: reactions?.cry || 0,
             userReaction: userReaction?.reactionType || null,
+            comments: post.comments || [],
             createdAt: post.createdAt,
+        };
+    }
+    async reportPost(postId, userId) {
+        const post = await this.postModel.findById(postId).exec();
+        if (!post) {
+            throw new common_1.NotFoundException('Post not found');
+        }
+        if (post.reports && post.reports.includes(userId)) {
+            throw new common_1.ForbiddenException('You have already reported this post');
+        }
+        if (!post.reports) {
+            post.reports = [];
+        }
+        post.reports.push(userId);
+        if (post.reports.length >= 3) {
+            await this.postModel.findByIdAndDelete(postId).exec();
+            return {
+                message: 'Post has been deleted due to multiple reports',
+                deleted: true,
+            };
+        }
+        await post.save();
+        return {
+            message: 'Post reported successfully',
+            deleted: false,
         };
     }
 };

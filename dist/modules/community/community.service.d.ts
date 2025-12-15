@@ -5,7 +5,7 @@ import { ReactPostDto } from './dto/react-post.dto';
 export declare class CommunityService {
     private postModel;
     constructor(postModel: Model<PostDocument>);
-    createPost(userId: string, userName: string, userProfileImage: string, createPostDto: CreatePostDto): Promise<Post>;
+    createPost(userId: string, userName: string, userProfileImage: string, userRole: string, createPostDto: CreatePostDto): Promise<Post>;
     getMyPosts(page: number, limit: number, userId: string): Promise<{
         posts: any[];
         total: number;
@@ -21,5 +21,11 @@ export declare class CommunityService {
     reactToPost(postId: string, userId: string, reactPostDto: ReactPostDto): Promise<Post>;
     removeReaction(postId: string, userId: string, reactionType: string): Promise<Post>;
     deletePost(postId: string, userId: string): Promise<void>;
+    addComment(postId: string, userId: string, userName: string, userProfileImage: string | undefined, userRole: string | undefined, text: string): Promise<Post>;
+    deleteComment(postId: string, commentId: string, userId: string): Promise<Post>;
     private getPostWithUserReaction;
+    reportPost(postId: string, userId: string): Promise<{
+        message: string;
+        deleted?: boolean;
+    }>;
 }

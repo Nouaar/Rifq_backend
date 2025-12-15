@@ -64,6 +64,7 @@ export class CommunityController {
         req.user._id.toString(),
         req.user.name,
         req.user.profileImage,
+        req.user.role,
         createPostDto,
       );
       console.log('Post created successfully');
@@ -192,5 +193,12 @@ export class CommunityController {
       message: 'Comment deleted successfully',
       post,
     };
+  }
+
+  @Post('posts/:postId/report')
+  async reportPost(@Request() req, @Param('postId') postId: string) {
+    const userId = req.user._id.toString();
+    const result = await this.communityService.reportPost(postId, userId);
+    return result;
   }
 }

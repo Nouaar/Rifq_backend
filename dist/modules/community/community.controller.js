@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const community_service_1 = require("./community.service");
 const react_post_dto_1 = require("./dto/react-post.dto");
+const add_comment_dto_1 = require("./dto/add-comment.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let CommunityController = class CommunityController {
@@ -41,7 +42,7 @@ let CommunityController = class CommunityController {
                 caption: body.caption || null,
             };
             console.log('Creating post in database...');
-            const post = await this.communityService.createPost(req.user._id.toString(), req.user.name, req.user.profileImage, createPostDto);
+            const post = await this.communityService.createPost(req.user._id.toString(), req.user.name, req.user.profileImage, req.user.role, createPostDto);
             console.log('Post created successfully');
             return {
                 message: 'Post created successfully',
@@ -82,6 +83,25 @@ let CommunityController = class CommunityController {
         return {
             message: 'Post deleted successfully',
         };
+    }
+    async addComment(req, postId, addCommentDto) {
+        const post = await this.communityService.addComment(postId, req.user._id.toString(), req.user.name, req.user.profileImage, req.user.role, addCommentDto.text);
+        return {
+            message: 'Comment added successfully',
+            post,
+        };
+    }
+    async deleteComment(req, postId, commentId) {
+        const post = await this.communityService.deleteComment(postId, commentId, req.user._id.toString());
+        return {
+            message: 'Comment deleted successfully',
+            post,
+        };
+    }
+    async reportPost(req, postId) {
+        const userId = req.user._id.toString();
+        const result = await this.communityService.reportPost(postId, userId);
+        return result;
     }
 };
 exports.CommunityController = CommunityController;
@@ -139,6 +159,32 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], CommunityController.prototype, "deletePost", null);
+__decorate([
+    (0, common_1.Post)('posts/:postId/comments'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, add_comment_dto_1.AddCommentDto]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "addComment", null);
+__decorate([
+    (0, common_1.Delete)('posts/:postId/comments/:commentId'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __param(2, (0, common_1.Param)('commentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "deleteComment", null);
+__decorate([
+    (0, common_1.Post)('posts/:postId/report'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('postId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CommunityController.prototype, "reportPost", null);
 exports.CommunityController = CommunityController = __decorate([
     (0, common_1.Controller)('community'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

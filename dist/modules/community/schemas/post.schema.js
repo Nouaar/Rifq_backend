@@ -29,6 +29,10 @@ __decorate([
     __metadata("design:type", String)
 ], Post.prototype, "userProfileImage", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Post.prototype, "userRole", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], Post.prototype, "petImage", void 0);
@@ -44,6 +48,27 @@ __decorate([
     (0, mongoose_1.Prop)({ type: [{ userId: String, reactionType: String }], default: [] }),
     __metadata("design:type", Array)
 ], Post.prototype, "userReactions", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: [String], default: [] }),
+    __metadata("design:type", Array)
+], Post.prototype, "reports", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({
+        type: [
+            {
+                _id: { type: mongoose_2.Schema.Types.ObjectId, auto: true },
+                userId: String,
+                userName: String,
+                userProfileImage: String,
+                userRole: String,
+                text: String,
+                createdAt: { type: Date, default: Date.now },
+            },
+        ],
+        default: [],
+    }),
+    __metadata("design:type", Array)
+], Post.prototype, "comments", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ default: Date.now }),
     __metadata("design:type", Date)
