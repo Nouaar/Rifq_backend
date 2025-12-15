@@ -35,6 +35,7 @@ export class Post {
         userId: String,
         userName: String,
         userProfileImage: String,
+        userRole: String,
         text: String,
         createdAt: { type: Date, default: Date.now },
       },
@@ -46,6 +47,7 @@ export class Post {
     userId: string;
     userName: string;
     userProfileImage?: string;
+    userRole?: string;
     text: string;
     createdAt: Date;
   }>;

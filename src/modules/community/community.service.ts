@@ -241,6 +241,7 @@ export class CommunityService {
     userId: string,
     userName: string,
     userProfileImage: string | undefined,
+    userRole: string | undefined,
     text: string,
   ): Promise<Post> {
     const post = await this.postModel.findById(postId).exec();
@@ -252,6 +253,7 @@ export class CommunityService {
       userId,
       userName,
       userProfileImage,
+      userRole,
       text,
       createdAt: new Date(),
     };

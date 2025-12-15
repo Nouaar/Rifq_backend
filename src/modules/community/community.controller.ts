@@ -166,6 +166,7 @@ export class CommunityController {
       req.user._id.toString(),
       req.user.name,
       req.user.profileImage,
+      req.user.role,
       addCommentDto.text,
     );
 
