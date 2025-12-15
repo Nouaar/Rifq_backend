@@ -115,22 +115,48 @@ export class SubscriptionsWebhookController {
   private async handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     console.log('✅ Payment succeeded for PaymentIntent:', paymentIntent.id);
 
-    const userId = paymentIntent.metadata?.userId;
-    const subscriptionRole = paymentIntent.metadata?.subscriptionRole || 'premium';
+    let userId: string | undefined = paymentIntent.metadata?.userId;
+    let subscriptionRole: string = paymentIntent.metadata?.subscriptionRole || 'premium';
     const paymentMethodId = paymentIntent.payment_method as string;
+    const customerId = paymentIntent.customer as string;
     
-    if (userId && paymentIntent.customer) {
+    // If userId is missing from metadata, try to find it from customer or subscription
+    if (!userId && customerId) {
+      try {
+        // Try to get userId from customer metadata
+        const customer = await this.stripe.customers.retrieve(customerId);
+        if (customer && !customer.deleted && customer.metadata?.userId) {
+          userId = customer.metadata.userId;
+          console.log(`✅ Found userId from customer metadata: ${userId}`);
+        }
+      } catch (error: any) {
+        console.warn(`⚠️ Could not retrieve customer: ${error.message}`);
+      }
+
+      // If still no userId, find subscription by customer ID
+      if (!userId) {
+        const subscription = await this.subscriptionsService.findByCustomerId(customerId);
+        if (subscription) {
+          userId = subscription.userId.toString();
+          subscriptionRole = subscription.role || 'premium';
+          console.log(`✅ Found subscription by customer ID. userId: ${userId}, role: ${subscriptionRole}`);
+        }
+      }
+    }
+    
+    if (userId && customerId) {
       // Create Stripe subscription now that payment is confirmed
       await this.subscriptionsService.createSubscriptionAfterPayment(
         userId,
-        paymentIntent.customer as string,
+        customerId,
         subscriptionRole,
         paymentMethodId,
       );
     } else {
-      console.warn('⚠️ Missing userId or customer in PaymentIntent:', {
+      console.error('❌ Cannot activate subscription - missing required data:', {
         userId,
-        customer: paymentIntent.customer,
+        customer: customerId,
+        paymentIntentId: paymentIntent.id,
       });
     }
   }

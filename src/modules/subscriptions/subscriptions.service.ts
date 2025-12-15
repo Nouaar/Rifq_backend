@@ -302,6 +302,22 @@ export class SubscriptionsService {
   }
 
   /**
+   * Find subscription by Stripe customer ID
+   * Used by webhook handler when metadata is missing
+   */
+  async findByCustomerId(customerId: string): Promise<SubscriptionResponseDto | null> {
+    const subscription = await this.subscriptionModel.findOne({
+      stripeCustomerId: customerId,
+    });
+
+    if (!subscription) {
+      return null;
+    }
+
+    return this.mapToResponseDto(subscription);
+  }
+
+  /**
    * Activate subscription (called after email verification)
    */
   async activate(userId: string): Promise<SubscriptionResponseDto> {
