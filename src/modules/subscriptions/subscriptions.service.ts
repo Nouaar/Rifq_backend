@@ -1076,8 +1076,8 @@ export class SubscriptionsService {
       // Update our subscription record
       subscription.stripeSubscriptionId = stripeSubscription.id;
       subscription.stripeCustomerId = customerId;
-      subscription.currentPeriodStart = new Date((stripeSubscription as any).current_period_start * 1000);
-      subscription.currentPeriodEnd = new Date((stripeSubscription as any).current_period_end * 1000);
+      subscription.currentPeriodStart = new Date(stripeSubscription.current_period_start * 1000);
+      subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.role = role;
       await subscription.save();
